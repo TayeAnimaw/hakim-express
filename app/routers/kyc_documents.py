@@ -42,6 +42,7 @@ def submit_kyc(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    print(f"Current user: {current_user.user_id}, is_verified: {current_user.is_verified}")
     if not current_user.is_verified:
         raise HTTPException(status_code=403, detail="User must verify OTP before submitting KYC")
 

@@ -52,6 +52,12 @@ def get_current_user(db: Session = Depends(get_db), token: dict = Depends(verify
     print(f"Decoded token: {token}")  # Print the decoded token to check the payload
     user_id = token.get("sub")
     print(f"Extracted user_id from token: {user_id}")  # Print user_id
+    if user_id is None:
+        raise HTTPException(status_code=403, detail="Invalid token: no user_id")
+    try:
+        user_id = int(user_id)
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Invalid token: user_id not integer")
     user = db.query(User).filter(User.user_id == user_id).first()
     print(f"Fetched user: {user}")  # Print the fetched user
     if not user:
@@ -62,12 +68,14 @@ def get_current_user(db: Session = Depends(get_db), token: dict = Depends(verify
 class JWTBearer(HTTPBearer):
     async def __call__(self, request: Request):
         credentials: HTTPAuthorizationCredentials = await super().__call__(request)
-        token = credentials.credentials
+        token = credentials.credentials if credentials else request.query_params.get('token')
         if not token:
             raise HTTPException(
                 status_code=403,
                 detail="Invalid or expired token",
             )
+        # Strip surrounding quotes if present
+        token = token.strip('"')
         return verify_access_token(token)
 def authenticate_user(db: Session, login_id: str, password: str):
     # Try to find user by email or phone
