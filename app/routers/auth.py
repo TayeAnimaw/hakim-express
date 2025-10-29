@@ -338,7 +338,6 @@ async def create_user(
 
         # Create new user
         db_user = User(
-            user_id=None,
             **user_data.dict(exclude={"password"}),
             password=get_password_hash(user_data.password),
             otp_code=otp,
