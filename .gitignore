@@ -1,0 +1,13 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+.env
+
+# Database files
+sql_app.db
+
+# Other sensitive files
+secret_key.txt
