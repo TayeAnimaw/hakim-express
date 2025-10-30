@@ -50,6 +50,13 @@ def submit_kyc(
     if existing:
         raise HTTPException(status_code=400, detail="KYC already submitted")
 
+    # Parse dob string to date object
+    try:
+        dob_date = datetime.strptime(dob, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format for dob. Use YYYY-MM-DD.")
+
+
     front_path = save_file(front_image, "front")
     selfie_path = save_file(selfie_image, "selfie")
     back_path = save_file(back_image, "back") if back_image else None
@@ -58,7 +65,7 @@ def submit_kyc(
         user_id=current_user.user_id,
         first_name=first_name,
         last_name=last_name,
-        dob=dob,
+        dob=dob_date,
         street_name=street_name,
         house_no=house_no,
         additional_info=additional_info,
@@ -91,6 +98,15 @@ def get_my_kyc(
 
     if not kyc:
         raise HTTPException(status_code=404, detail="KYC document not found")
+
+    # Debug logging
+    print(f"Debug: kyc.user = {kyc.user}")
+    if kyc.user:
+        print(f"Debug: user.email = {kyc.user.email}, user.phone = {kyc.user.phone}, user.email type = {type(kyc.user.email)}")
+
+        # Handle null email for existing users
+        if kyc.user.email is None:
+            kyc.user.email = ""
 
     return kyc
 
@@ -141,7 +157,11 @@ def update_my_kyc(
     if id_type is not None:
         kyc.id_type = id_type
     if dob is not None:
-        kyc.dob = datetime.strptime(dob, "%Y-%m-%d").date()
+        try:
+            kyc.dob = datetime.strptime(dob, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format for dob. Use YYYY-MM-DD.")
+
     if front_image is not None:
         kyc.front_image = save_file(front_image, "front")
 

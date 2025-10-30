@@ -328,6 +328,14 @@ async def create_user(
                 User.is_verified == False
             ).delete()
 
+        # Generate a unique email for phone-only users
+        user_email = user_data.email
+        if not user_email and user_data.phone:
+            # Generate unique email using phone number
+            import uuid
+            unique_suffix = str(uuid.uuid4().hex)[:8]
+            user_email = f"phone_{user_data.phone}_{unique_suffix}@temp.local"
+
         # Determine OTP
         if user_data.email:
             otp = generate_otp()
@@ -338,7 +346,8 @@ async def create_user(
 
         # Create new user
         db_user = User(
-            **user_data.dict(exclude={"password"}),
+            email=user_email,
+            phone=user_data.phone,
             password=get_password_hash(user_data.password),
             otp_code=otp,
             otp_expires_at=otp_expiry,
@@ -347,12 +356,14 @@ async def create_user(
             updated_at=datetime.utcnow()
         )
 
+        print(f"Debug: Creating user with email={user_email}, phone={user_data.phone}")
+
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
 
-        # Send OTP to email if email is provided
-        if db_user.email:
+        # Send OTP to email if email is provided (skip for generated temp emails)
+        if db_user.email and not db_user.email.endswith('@temp.local'):
             subject = "Your OTP Code for Account Verification"
             body = f"Hello {db_user.email},\n\nYour OTP code is: {otp}\n\nThis code will expire in 10 minutes.\n\nThank you!"
             await send_email_async(subject, db_user.email, body)

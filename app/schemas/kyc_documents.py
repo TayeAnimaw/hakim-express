@@ -1,5 +1,5 @@
 # app/schemas/kyc_documents.py
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import date, datetime
 from enum import Enum
 from typing import Optional
@@ -33,11 +33,19 @@ class KycDocumentBase(BaseModel):
     country: Optional[str]
     gender: GenderEnum
 class UserBasicOut(BaseModel):
-    email: str
+    email: Optional[str] = None
     phone: Optional[str] = None
 
     class Config:
         orm_mode = True
+
+    @validator('email', pre=True, always=True)
+    def validate_email(cls, v):
+        return v
+
+    @validator('phone', pre=True, always=True)
+    def validate_phone(cls, v):
+        return v
 
 class KYCDocumentCreate(BaseModel):
     first_name: str
@@ -67,6 +75,10 @@ class KYCDocumentOut(KYCDocumentCreate):
     updated_at: datetime
     # Add nested user field
     user: Optional[UserBasicOut]
+
+    class Config:
+        orm_mode = True
+
     @validator('dob', pre=True)
     def fix_invalid_dob(cls, value):
         if value in ('0000-00-00', None, ''):
