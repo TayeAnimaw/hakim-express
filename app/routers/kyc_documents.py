@@ -40,51 +40,53 @@ def submit_kyc(
     back_image: UploadFile = File(None),
     selfie_image: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user : User = Depends(get_current_user),
 ):
-    print(f"Current user: {current_user.user_id}, is_verified: {current_user.is_verified}")
-    if not current_user.is_verified:
-        raise HTTPException(status_code=403, detail="User must verify OTP before submitting KYC")
-
-    existing = db.query(KYCDocument).filter(KYCDocument.user_id == current_user.user_id).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="KYC already submitted")
-
-    # Parse dob string to date object
     try:
-        dob_date = datetime.strptime(dob, "%Y-%m-%d").date()
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid date format for dob. Use YYYY-MM-DD.")
+        print(f"Current user: {current_user.user_id}, is_verified: {current_user.is_verified}")
+        if not current_user.is_verified:
+            raise HTTPException(status_code=403, detail="User must verify OTP before submitting KYC")
+
+        existing = db.query(KYCDocument).filter(KYCDocument.user_id == current_user.user_id).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="KYC already submitted")
+        try:
+            dob_date = datetime.strptime(dob, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format for dob. Use YYYY-MM-DD.")
 
 
-    front_path = save_file(front_image, "front")
-    selfie_path = save_file(selfie_image, "selfie")
-    back_path = save_file(back_image, "back") if back_image else None
+        front_path = save_file(front_image, "front")
+        selfie_path = save_file(selfie_image, "selfie")
+        back_path = save_file(back_image, "back") if back_image else None
+        new_kyc = KYCDocument(
+            user_id=current_user.user_id,
+            first_name=first_name,
+            last_name=last_name,
+            dob=dob_date,
+            street_name=street_name,
+            house_no=house_no,
+            additional_info=additional_info,
+            postal_code=postal_code,
+            region=region,
+            city=city,
+            country=country,
+            gender=gender,
+            id_type=id_type,
+            front_image=front_path,
+            back_image=back_path,
+            selfie_image=selfie_path,
+        )
 
-    new_kyc = KYCDocument(
-        user_id=current_user.user_id,
-        first_name=first_name,
-        last_name=last_name,
-        dob=dob_date,
-        street_name=street_name,
-        house_no=house_no,
-        additional_info=additional_info,
-        postal_code=postal_code,
-        region=region,
-        city=city,
-        country=country,
-        gender=gender,
-        id_type=id_type,
-        front_image=front_path,
-        back_image=back_path,
-        selfie_image=selfie_path,
-    )
-
-    db.add(new_kyc)
-    current_user.kyc_status = KYCStatus.pending
-    db.commit()
-    db.refresh(new_kyc)
-    return new_kyc
+        db.add(new_kyc)
+        current_user.kyc_status = KYCStatus.pending
+        db.commit()
+        db.refresh(new_kyc)
+        return new_kyc
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
 from sqlalchemy.orm import joinedload
 
 @router.get("/me", response_model=KYCDocumentOut)
