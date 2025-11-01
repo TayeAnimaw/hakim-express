@@ -17,7 +17,6 @@ def assign_permissions(
     user_id: int,
     permissions: List[AdminPermissionCreate],
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin_user)
 ):
     admin_role = db.query(AdminRole).filter(AdminRole.user_id == user_id).first()
     if not admin_role:
