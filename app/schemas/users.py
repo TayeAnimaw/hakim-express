@@ -20,11 +20,13 @@ class OTPVerify(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     otp: str
-
+class ReSendOTPRequest(BaseModel):
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
 
 class UserBase(BaseModel):
     email: Optional[EmailStr] = None
-    phone: Optional[constr(min_length=10, max_length=15)] = None
+    phone: Optional[constr(min_length=10, max_length=15)] = None # type: ignore
     role: Role = Role.user
     kyc_documents: KycDocumentBase | None = None
     profile_picture: Optional[str] = None
@@ -32,8 +34,8 @@ class UserBase(BaseModel):
 
 class UserCreate(BaseModel):     
     email: Optional[EmailStr] = None
-    phone: Optional[constr(min_length=10, max_length=15)] = None
-    password: constr(min_length=8)
+    phone: Optional[constr(min_length=10, max_length=15)] = None # type: ignore
+    password: constr(min_length=8) # type: ignore
 
     @root_validator(skip_on_failure=True)
     def at_least_one_contact(cls, values):
@@ -55,13 +57,13 @@ class UserCreate(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    first_name: Optional[constr(min_length=1, max_length=50)] = None
-    last_name: Optional[constr(min_length=1, max_length=50)] = None
-    phone: Optional[constr(min_length=10, max_length=15)] = None
-    role: Optional[Role] = None
-    password: Optional[constr(min_length=8)] = None
-    password_confirm: Optional[constr(min_length=8)] = None  # Password confirmation field
-    current_password: Optional[constr(min_length=8)] = None  # Current password for validation
+    first_name: Optional[constr(min_length=1, max_length=50)] = None # type: ignore
+    last_name: Optional[constr(min_length=1, max_length=50)] = None # type: ignore
+    phone: Optional[constr(min_length=10, max_length=15)] = None # type: ignore
+    role: Optional[Role] = None 
+    password: Optional[constr(min_length=8)] = None # type: ignore
+    password_confirm: Optional[constr(min_length=8)] = None  # Password confirmation field # type: ignore
+    current_password: Optional[constr(min_length=8)] = None  # Current password for validation # type: ignore
     two_factor_enabled: Optional[bool] = None
     is_active: Optional[bool] = None
     is_verified: Optional[bool] = None
@@ -74,9 +76,9 @@ class UserUpdate(BaseModel):
             raise ValueError('Passwords do not match')
         return v
 class UserAdminUpdate(BaseModel):
-    first_name: Optional[constr(min_length=1, max_length=50)] = None
-    last_name: Optional[constr(min_length=1, max_length=50)] = None
-    phone: Optional[constr(min_length=10, max_length=15)] = None
+    first_name: Optional[constr(min_length=1, max_length=50)] = None # type: ignore
+    last_name: Optional[constr(min_length=1, max_length=50)] = None # type: ignore
+    phone: Optional[constr(min_length=10, max_length=15)] = None # type: ignore
     email: Optional[EmailStr] = None
 # Changed from EmailStr to str because some users may register with phone-only accounts.
 # In those cases, we generate a temporary/fake email (e.g., phone_+251911111111_xxxxx@example.com)
