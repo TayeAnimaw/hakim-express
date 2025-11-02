@@ -504,8 +504,8 @@ async def resend_otp(
         await send_email_async(subject, user.email, body)
     else:
         # For phone-only users: use static OTP
-        user.otp_code = "123456"  # same OTP
-        await store_verification_code(email, otp)
+        otp = "123456"  # same OTP
+        await store_verification_code(data.phone, otp)
         # No SMS sending since SMS provider is not configured
 
     return {
