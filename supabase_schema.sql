@@ -358,3 +358,6 @@ CREATE TRIGGER update_recipients_updated_at BEFORE UPDATE ON recipients FOR EACH
 CREATE TRIGGER update_manual_deposits_updated_at BEFORE UPDATE ON manual_deposits FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_boa_transactions_updated_at BEFORE UPDATE ON boa_transactions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_notifications_updated_at BEFORE UPDATE ON notifications FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+
+SHOW TABLES;

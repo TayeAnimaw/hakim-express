@@ -8,7 +8,7 @@ class AdminPermissionBase(BaseModel):
     permission: str
 
 class AdminPermissionCreate(AdminPermissionBase):
-    pass
+    permission: str
 
 class AdminPermissionResponse(AdminPermissionBase):
     id: int

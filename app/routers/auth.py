@@ -4,7 +4,8 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from datetime import timedelta, datetime
 from app.database.database import get_db
-from app.models.users import User
+from app.models.admin_role import AdminPermission, AdminRole
+from app.models.users import Role, User
 from app.security import get_password_hash, verify_password
 from app.core.config import settings
 from typing import Annotated
@@ -13,9 +14,6 @@ from app.utils.email_service import send_email_async
 from fastapi import Body
 from fastapi import Request
 from jose import JWTError, jwt
-
-
-
 from app.security import (
     authenticate_user,
     create_access_token,
@@ -25,13 +23,10 @@ from app.security import (
     # ACCESS_TOKEN_EXPIRE_MINUTES,
     verify_password,
     get_password_hash,
-    create_refresh_token   
-    
+    create_refresh_token      
 )
 import random
-
 router = APIRouter()
-
 # Helper function to generate OTP
 def generate_otp():
     return str(random.randint(100000, 999999))
@@ -538,3 +533,89 @@ async def logout(
     db: Session = Depends(get_db)
 ):
     return {"message": "Successfully logged out and token invalidated"}
+
+@router.post("/create-admin", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+async def create_admin(user_data: UserCreate, db: Session = Depends(get_db)):
+    # Ensure either email or phone is provided
+    if not user_data.email and not user_data.phone:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Either email or phone number must be provided."
+        )
+
+    # Check if verified email already exists
+    if user_data.email:
+        verified_email_user = db.query(User).filter(
+            User.email == user_data.email,
+            User.is_verified == True
+        ).first()
+        if verified_email_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered and verified."
+            )
+
+    # Check if verified phone already exists
+    if user_data.phone:
+        verified_phone_user = db.query(User).filter(
+            User.phone == user_data.phone,
+            User.is_verified == True
+        ).first()
+        if verified_phone_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Phone number already registered and verified."
+            )
+
+    # Delete all unverified users with same email or phone
+    if user_data.email:
+        db.query(User).filter(
+            User.email == user_data.email,
+            User.is_verified == False
+        ).delete()
+    if user_data.phone:
+        db.query(User).filter(
+            User.phone == user_data.phone,
+            User.is_verified == False
+        ).delete()
+
+    # Generate a unique email for phone-only users
+    user_email = user_data.email
+    if not user_email and user_data.phone:
+        import uuid
+        unique_suffix = str(uuid.uuid4().hex)[:8]
+        user_email = f"phone_{user_data.phone}_{unique_suffix}@example.com"
+
+    # Determine OTP (optional for admins, usually not needed)
+    otp = generate_otp() if user_data.email else "123456"
+    otp_expiry = datetime.utcnow() + timedelta(minutes=10)
+
+    # Create user as admin
+    db_user = User(
+        email=user_email,
+        phone=user_data.phone,
+        password=get_password_hash(user_data.password),
+        role=Role.admin,
+        is_verified=True,  # Admins auto-verified
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+        otp_code=otp,
+        otp_expires_at=otp_expiry
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+
+    # Create AdminRole entry
+    admin_role = AdminRole(user_id=db_user.user_id)
+    db.add(admin_role)
+    db.commit()
+    db.refresh(admin_role)
+
+    # Assign default permissions
+    default_perms = ["view_users", "edit_users", "toggle-admin", "activity-logs"]
+    for perm in default_perms:
+        db.add(AdminPermission(admin_id=admin_role.id, permission=perm))
+    db.commit()
+
+    return db_user

@@ -78,10 +78,13 @@ class UserAdminUpdate(BaseModel):
     last_name: Optional[constr(min_length=1, max_length=50)] = None
     phone: Optional[constr(min_length=10, max_length=15)] = None
     email: Optional[EmailStr] = None
-
+# Changed from EmailStr to str because some users may register with phone-only accounts.
+# In those cases, we generate a temporary/fake email (e.g., phone_+251911111111_xxxxx@example.com)
+# which may not pass strict RFC-compliant email validation used by EmailStr.
+# Using str allows returning these temporary emails without causing serialization errors.
 class UserOut(BaseModel):
     user_id: int
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None 
     phone: Optional[str] = None
     role:Optional[Role] = Role.user
     is_active: bool
