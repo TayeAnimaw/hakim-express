@@ -14,9 +14,6 @@ from app.utils.email_service import send_email_async
 from fastapi import Body
 from fastapi import Request
 from jose import JWTError, jwt
-
-
-
 from app.security import (
     authenticate_user,
     create_access_token,
@@ -26,13 +23,10 @@ from app.security import (
     # ACCESS_TOKEN_EXPIRE_MINUTES,
     verify_password,
     get_password_hash,
-    create_refresh_token   
-    
+    create_refresh_token      
 )
 import random
-
 router = APIRouter()
-
 # Helper function to generate OTP
 def generate_otp():
     return str(random.randint(100000, 999999))
@@ -333,8 +327,12 @@ async def create_user(
         user_email = user_data.email
         if not user_email and user_data.phone:
             # Generate unique email using phone number
+            print(123)
             import uuid
             unique_suffix = str(uuid.uuid4().hex)[:8]
+            # Changed the temporary email domain from '@temp.local' to '@example.com'
+            # because Pydantic v2 rejects '.local' domains as invalid email addresses.
+            # '@example.com' is a safe, valid dummy domain for testing and auto-generated users.
             user_email = f"phone_{user_data.phone}_{unique_suffix}@example.com"
 
         # Determine OTP
@@ -372,6 +370,7 @@ async def create_user(
         return db_user
 
     except Exception as e:
+        print(e)
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
