@@ -332,9 +332,13 @@ async def create_user(
         user_email = user_data.email
         if not user_email and user_data.phone:
             # Generate unique email using phone number
+            print(123)
             import uuid
             unique_suffix = str(uuid.uuid4().hex)[:8]
-            user_email = f"phone_{user_data.phone}_{unique_suffix}@temp.local"
+            # Changed the temporary email domain from '@temp.local' to '@example.com'
+            # because Pydantic v2 rejects '.local' domains as invalid email addresses.
+            # '@example.com' is a safe, valid dummy domain for testing and auto-generated users.
+            user_email = f"phone_{user_data.phone}_{unique_suffix}@example.com"
 
         # Determine OTP
         if user_data.email:
@@ -371,6 +375,7 @@ async def create_user(
         return db_user
 
     except Exception as e:
+        print(e)
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
