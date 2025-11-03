@@ -1,8 +1,9 @@
 import random
 import string
 
+from passlib.context import CryptContext
 from app.database.database import get_redis
-
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def generate_random_otp(length: int = 6) -> str:
     generated_otp: str = "".join(random.choices(string.digits, k=length))
@@ -44,3 +45,9 @@ async def verify_email_verified(email_or_phone: str) -> bool:
     key = f"email_verified:{email}"
     status = await redis.get(key)
     return status == "true"
+
+def verify_password(plain_password: str, hashed_password: str):
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_password_hash(password: str):
+    return pwd_context.hash(password)

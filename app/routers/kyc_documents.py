@@ -94,6 +94,7 @@ def get_my_kyc(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    print(123)
     kyc = db.query(KYCDocument).options(joinedload(KYCDocument.user)).filter(
         KYCDocument.user_id == current_user.user_id
     ).first()
@@ -109,7 +110,7 @@ def get_my_kyc(
         # Handle null email for existing users
         if kyc.user.email is None:
             kyc.user.email = ""
-
+    print(kyc)
     return kyc
 
 @router.put("/update", response_model=KYCDocumentOut)

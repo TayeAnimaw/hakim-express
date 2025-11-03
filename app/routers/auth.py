@@ -482,7 +482,6 @@ async def resend_otp(
 
     # Query user by email or phone
     user = None
-    print(data.email,data.phone)
     if data.email:
         user = db.query(User).filter(User.email == data.email).first()
     elif data.phone:
