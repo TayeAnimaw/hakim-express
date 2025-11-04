@@ -1,7 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.database.database import SessionLocal, engine
+from app.database.database import Base, SessionLocal, engine, init_redis
 from app.seeders import create_admin_user
 from app.routers import auth, users, payment_cards, recipients ,manual_deposits, notifications, kyc_documents, admin_kyc, admin_transactions,user_transactions, admin,dashboard, admin_exchange_rate, user_exchange_rate, admin_role, contact_us, admin_transaction_fees, admin_role,country, bank, user_transaction_fees, boa_integration
 
@@ -24,6 +24,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+@app.on_event("startup")
+async def startup_event():
+    """
+    Function to run on application startup.
+    Initializes Redis connection on startup.
+    """
+    await init_redis()
+    print("Redis initialized successfully.")
+
 app.include_router(dashboard.router, prefix="/api/admin", tags=["Dashboard"])
 app.include_router(admin.router, prefix="/api", tags=["Admin User"])
 app.include_router(admin_kyc.router, prefix="/api/admin/kyc", tags=["Admin - KYC Management"])
