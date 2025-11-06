@@ -3,6 +3,10 @@ import string
 
 from passlib.context import CryptContext
 from app.database.database import get_redis
+import stripe
+from .config import *
+import stripe
+from fastapi import HTTPException
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def generate_random_otp(length: int = 6) -> str:
@@ -51,3 +55,33 @@ def verify_password(plain_password: str, hashed_password: str):
 
 def get_password_hash(password: str):
     return pwd_context.hash(password)
+
+  # assuming you have your Stripe key here
+
+stripe.api_key = settings.STRIPE_SECRET_KEY  # test secret key
+
+def create_stripe_payment_method(email: str = "dev@example.com") -> str:
+    """
+    Create a Stripe customer (if needed), create a PaymentMethod using a test token,
+    attach it to the customer, and return the PaymentMethod ID.
+    """
+    try:
+        # Create a test customer
+        customer = stripe.Customer.create(email=email, source="tok_visa")
+        print("Customer created:", customer.id)
+        print("Default source:", customer.default_source)
+
+        # Create a PaymentMethod using test token
+        pm = stripe.PaymentMethod.create(type="card", card={"token": "tok_visa"})
+        pm_id = pm.id
+        print("Created PaymentMethod:", pm_id)
+
+        # Attach PaymentMethod to the customer
+        stripe.PaymentMethod.attach(pm_id, customer=customer.id)
+        print(f"PaymentMethod {pm_id} attached to customer {customer.id}")
+
+        return pm_id
+
+    except stripe.error.StripeError as e:
+        print("Stripe error:", e.user_message or e)
+        return None
