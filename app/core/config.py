@@ -2,8 +2,8 @@
 
 import os
 from dotenv import load_dotenv
-from pydantic_settings import BaseSettings, SettingsConfigDict
-
+from pydantic import BaseSettings
+from pydantic import ConfigDict  # only if you use SettingsConfigDict
 # Load environment variables from .env file
 load_dotenv()
 
