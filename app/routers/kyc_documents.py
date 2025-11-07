@@ -4,7 +4,7 @@ from app.database.database import get_db
 from app.models.kyc_documents import KYCDocument, KYCStatus, IDTypeEnum, GenderEnum
 from app.models.users import User
 from app.schemas.kyc_documents import KYCDocumentOut
-from app.security import get_current_user
+from app.security import get_current_user, JWTBearer
 from datetime import datetime
 import shutil
 import os
@@ -40,8 +40,9 @@ def submit_kyc(
     back_image: UploadFile = File(None),
     selfie_image: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    token: dict = Depends(JWTBearer()),
 ):
+    current_user = get_current_user(db, token)
     print(f"Current user: {current_user.user_id}, is_verified: {current_user.is_verified}")
     if not current_user.is_verified:
         raise HTTPException(status_code=403, detail="User must verify OTP before submitting KYC")
@@ -90,8 +91,9 @@ from sqlalchemy.orm import joinedload
 @router.get("/me", response_model=KYCDocumentOut)
 def get_my_kyc(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    token: dict = Depends(JWTBearer()),
 ):
+    current_user = get_current_user(db, token)
     kyc = db.query(KYCDocument).options(joinedload(KYCDocument.user)).filter(
         KYCDocument.user_id == current_user.user_id
     ).first()
@@ -128,8 +130,9 @@ def update_my_kyc(
     back_image: UploadFile = File(None),
     selfie_image: UploadFile = File(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    token: dict = Depends(JWTBearer()),
 ):
+    current_user = get_current_user(db, token)
     kyc = db.query(KYCDocument).filter(KYCDocument.user_id == current_user.user_id).first()
     if not kyc:
         raise HTTPException(status_code=404, detail="KYC document not found")
@@ -179,8 +182,9 @@ def update_my_kyc(
 def update_selfie_image(
     selfie_image: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    token: dict = Depends(JWTBearer()),
 ):
+    current_user = get_current_user(db, token)
     """
     Replace the selfie image of the authenticated user's KYC document.
     Users can only update their own selfie image.

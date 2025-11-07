@@ -40,8 +40,8 @@ def verify_access_token(token: str):
         return payload  # Payload should have a 'sub' field which is the user_id
     except JWTError:
         raise HTTPException(
-            status_code=403,
-            detail="Could not validate credentials",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
         )
 def create_refresh_token(data: dict, expires_delta: timedelta = timedelta(days=7)):
     to_encode = data.copy()
@@ -71,8 +71,8 @@ class JWTBearer(HTTPBearer):
         token = credentials.credentials if credentials else request.query_params.get('token')
         if not token:
             raise HTTPException(
-                status_code=403,
-                detail="Invalid or expired token",
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated",
             )
         # Strip surrounding quotes if present
         token = token.strip('"')

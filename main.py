@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from app.database.database import SessionLocal, engine
 from app.seeders import create_admin_user
 from app.routers import auth, users, payment_cards, recipients ,manual_deposits, notifications, kyc_documents, admin_kyc, admin_transactions,user_transactions, admin,dashboard, admin_exchange_rate, user_exchange_rate, admin_role, contact_us, admin_transaction_fees, admin_role,country, bank, user_transaction_fees, boa_integration
+from app.seeders import create_admin_user
 
 app = FastAPI(
     title="Hakim Express API",
@@ -11,6 +12,13 @@ app = FastAPI(
     version="1.0.0",
 )
 
+@app.on_event("startup")
+def on_startup():
+    db = SessionLocal()
+    try:
+        create_admin_user(db)
+    finally:
+        db.close()
 # Mount static files for uploads
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 

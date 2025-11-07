@@ -305,9 +305,9 @@ class BoATestSuite:
 
             # Mock the exact authentication request from Postman
             expected_auth_payload = {
-                "client_secret": "123",
-                "client_id": "123",
-                "refresh_token": "123",
+                "client_secret": "d44gvjIhns614II5P7Nlrd1SoZ3kg5aB",
+                "client_id": "HakimRemitTest",
+                "refresh_token": "ElyIydAUfWDbyKPd21mQgj7Giee92se3",
                 "grant_type": "refresh_token"
             }
 
@@ -321,10 +321,10 @@ class BoATestSuite:
                 }
 
                 with patch.dict(os.environ, {
-                    'BOA_CLIENT_ID': '123',
-                    'BOA_CLIENT_SECRET': '123',
-                    'BOA_REFRESH_TOKEN': '123',
-                    'BOA_X_API_KEY': '822a4254-e348-4bc7-bbda-1f0ec79d5eb0'
+                    'BOA_CLIENT_ID': 'HakimRemitTest',
+                    'BOA_CLIENT_SECRET': 'd44gvjIhns614II5P7Nlrd1SoZ3kg5aB',
+                    'BOA_REFRESH_TOKEN': 'ElyIydAUfWDbyKPd21mQgj7Giee92se3',
+                    'BOA_X_API_KEY': 'W0Suhcd9XjFHmOUJbxMABa2gRyRDpYql0tYyuO5XIzQhgO2SG8Zli52jpZxk7JPi'
                 }, clear=True):
                     await api._authenticate()
 
@@ -352,7 +352,7 @@ class BoATestSuite:
 
             # Mock the exact transfer request from Postman
             expected_transfer_payload = {
-                "client_id": "123",
+                "client_id": "HakimRemitTest",
                 "amount": "100",
                 "accountNumber": "7260865",
                 "reference": "stringETSW"
@@ -381,13 +381,13 @@ class BoATestSuite:
                 mock_post.return_value.json.return_value = mock_response
 
                 with patch.dict(os.environ, {
-                    'BOA_CLIENT_ID': '123',
-                    'BOA_CLIENT_SECRET': '123',
-                    'BOA_REFRESH_TOKEN': '123',
-                    'BOA_X_API_KEY': '822a4254-e348-4bc7-bbda-1f0ec79d5eb0'
+                    'BOA_CLIENT_ID': 'HakimRemitTest',
+                    'BOA_CLIENT_SECRET': 'd44gvjIhns614II5P7Nlrd1SoZ3kg5aB',
+                    'BOA_REFRESH_TOKEN': 'ElyIydAUfWDbyKPd21mQgj7Giee92se3',
+                    'BOA_X_API_KEY': 'W0Suhcd9XjFHmOUJbxMABa2gRyRDpYql0tYyuO5XIzQhgO2SG8Zli52jpZxk7JPi'
                 }, clear=True):
                     # Set a dummy access token
-                    api._access_token = "Ersic9oOAWSGvJ5YgVwq1muL7Mfwvqp5"
+                    api._access_token = "njPXnoGx83lpwXAcaPkb6jaNrvwY2iwd"
 
                     result = await api.initiate_within_boa_transfer(
                         amount="100",

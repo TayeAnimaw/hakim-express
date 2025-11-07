@@ -81,7 +81,7 @@ class UserAdminUpdate(BaseModel):
 
 class UserOut(BaseModel):
     user_id: int
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     phone: Optional[str] = None
     role:Optional[Role] = Role.user
     is_active: bool

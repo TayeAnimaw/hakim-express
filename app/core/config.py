@@ -8,12 +8,7 @@ load_dotenv()
 
 class Settings:
     PROJECT_NAME: str = "Hakim Express"
-    VERSION: str = "1.0"
-    
-    # Database URL with a default fallback
-    # DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql+psycopg2://remetance_appuser:Vbx0A0KsmKqzidsjGAwIN07SOoAE3ya2@dpg-d13itr63jp1c73d4qb5g-a.oregon-postgres.render.com/remetance_app_x48q?sslmode=require")
-    # DATABASE_URL: str = os.getenv("DATABASE_URL")  # Set in .env, required for deployment
-    # Database URL - use PostgreSQL in production (Render), PostgreSQL in development
+    VERSION: str = "1.0"    
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://hakim_express_user:mXJK81GKUkBxMb3UBNUpp1CMLkixtutd@dpg-d40pj6k9c44c73c9qb20-a.oregon-postgres.render.com/hakim_express_10js")
     # Secret Key for JWT Token and other sensitive operations
     SECRET_KEY: str = os.getenv("SECRET_KEY", "4f66b8a5-97b1-44e0-91c1-1b5601293783#lkl*do5fb87md@8jfi3$")
