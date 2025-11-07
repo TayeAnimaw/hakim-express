@@ -46,7 +46,6 @@ class BoATestSuite:
         self.test_results.append(result)
 
         status = "PASS" if success else "FAIL"
-        print(f"{status}: {test_name}")
         if message:
             print(f"      {message}")
         if error:
