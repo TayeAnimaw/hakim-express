@@ -93,6 +93,7 @@ def update_user(
     - Phone number
     - Email address
     """
+    print(current_user.role,"======================================")
     if current_user.role != Role.admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

@@ -1,5 +1,5 @@
 # app/routers/user_transactions.py
-from fastapi import APIRouter, Depends, HTTPException, status, Form
+from fastapi import APIRouter, Depends, HTTPException, logger, status, Form
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import datetime
@@ -60,7 +60,6 @@ def create_user_transaction(
     # stripe_amount = int(amount * 100)
     total_amount = amount + transfer_fee
     stripe_amount = int(total_amount * 100)
-
     payment_method_id = None
     customer_id = None
 
@@ -78,7 +77,9 @@ def create_user_transaction(
             )
 
         payment_method_id = card.stripe_payment_method_id
+
         customer_id = card.stripe_customer_id
+        
 
         # Stripe logic for saved card
         try:
@@ -311,7 +312,6 @@ async def validate_beneficiary(
         Transaction.transaction_id == transaction_id,
         Transaction.user_id == current_user.user_id
     ).first()
-
     if not transaction:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -344,7 +344,7 @@ async def validate_beneficiary(
         }
 
     except BoAServiceError as e:
-        logger.error(f"BoA service error validating beneficiary: {str(e)}")
+        
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Beneficiary validation failed: {str(e)}"

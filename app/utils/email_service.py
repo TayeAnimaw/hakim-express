@@ -22,5 +22,4 @@ async def send_email_async(subject: str, recipient: str, body: str):
         )
         return {"message": "Email sent successfully"}
     except Exception as e:
-        print(f"Failed to send email: {e}")
         return {"error": str(e)}

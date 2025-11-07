@@ -39,7 +39,8 @@ psycopg2-binary==2.9.10
 pyasn1==0.4.8
 pycparser==2.22
 pydantic==2.11.3
-pydantic_core==2.33.1
+pydantic-core==2.33.1
+pydantic-settings==2.7.1
 PyJWT==2.10.1
 PyMySQL==1.1.1
 python-dotenv==1.1.0
@@ -65,3 +66,4 @@ urllib3==2.4.0
 uvicorn==0.34.2
 virtualenv==20.29.1
 whitenoise==5.3.0
+redis==5.2.1

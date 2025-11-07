@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
+from app.core.security import verify_email_verified
 from app.database.database import get_db
 from app.models.users import User
 from app.schemas.users import UserOut, UserUpdate,UserProfile,UserProfileUpdate
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from app.core.config import settings
-from app.security import create_access_token, JWTBearer, verify_access_token # You already use this for login
+from app.security import create_access_token, JWTBearer, get_password_hash, verify_access_token, verify_password # You already use this for login
 from app.utils.email_service import send_email_async  # You used this in registration
 import os
 from app.security import get_current_user  
@@ -94,16 +95,12 @@ def get_profile_picture(
         "phone": user.phone,
         "profile_picture": profile_picture_url
     }
-def verify_password(plain_password: str, hashed_password: str):
-    return pwd_context.verify(plain_password, hashed_password)
 
-def get_password_hash(password: str):
-    return pwd_context.hash(password)
 
 
 # Change password securely
 @router.put("/change-password")
-def change_password(
+async def change_password(
     current_password: str = Form(...),
     new_password: str = Form(...),
     confirm_password: str = Form(...),
@@ -113,7 +110,6 @@ def change_password(
     db_user = db.query(User).filter(User.user_id == current_user.user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
-
     if not verify_password(current_password, db_user.password):
         raise HTTPException(status_code=400, detail="Incorrect current password")
 
@@ -142,7 +138,6 @@ async def forgot_password(email: str, db: Session = Depends(get_db)):
     # Send email with reset link
     # reset_link = f"https://hakim-express-admin.vercel.app/reset-password?token=%7BRESET_TOKEN%7D?token={reset_token}"
     reset_link = f"https://hakim-express-admin.vercel.app/reset-password?token={reset_token}"
-
     subject = "Reset Your Password"
     body = f"""
     Hi {user.email},

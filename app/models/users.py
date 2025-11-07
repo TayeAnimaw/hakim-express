@@ -35,8 +35,6 @@ class User(Base):
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
     updated_at = Column(TIMESTAMP, default=datetime.utcnow, onupdate=datetime.utcnow)
     deleted_at = Column(TIMESTAMP, nullable=True)
-    otp_code = Column(String(6), nullable=True)
-    otp_expires_at = Column(TIMESTAMP, nullable=True)
     user_weekly_limit = Column(BigInteger, nullable=True)
     admin_notes = Column(Text, nullable=True)
     stripe_customer_id = Column(String, nullable=True)

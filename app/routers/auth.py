@@ -3,19 +3,18 @@ from fastapi import APIRouter, Depends, HTTPException, status, Form
 from typing import Optional
 from sqlalchemy.orm import Session
 from datetime import timedelta, datetime
+from app.core.security import generate_random_otp, set_email_verified, store_verification_code, verify_code
 from app.database.database import get_db
-from app.models.users import User
+from app.models.admin_role import AdminPermission, AdminRole
+from app.models.users import Role, User
 from app.security import get_password_hash, verify_password
 from app.core.config import settings
 from typing import Annotated
-from app.schemas.users import Token, UserLogin, OTPVerify, UserCreate, UserOut, UserUpdate, RefreshTokenRequest
+from app.schemas.users import ReSendOTPRequest, Token, UserLogin, OTPVerify, UserCreate, UserOut, UserUpdate, RefreshTokenRequest
 from app.utils.email_service import send_email_async
 from fastapi import Body
 from fastapi import Request
 from jose import JWTError, jwt
-
-
-
 from app.security import (
     authenticate_user,
     create_access_token,
@@ -25,16 +24,11 @@ from app.security import (
     # ACCESS_TOKEN_EXPIRE_MINUTES,
     verify_password,
     get_password_hash,
-    create_refresh_token   
-    
+    create_refresh_token      
 )
 import random
-
 router = APIRouter()
 
-# Helper function to generate OTP
-def generate_otp():
-    return str(random.randint(100000, 999999))
 
 @router.post("/login", response_model=Token)
 async def login_for_access_token(
@@ -58,12 +52,9 @@ async def login_for_access_token(
         )
     if not user.is_verified:
         # Send OTP if the user is not verified
-        otp = generate_otp()
-        otp_expiry = datetime.utcnow() + timedelta(minutes=10)
-        user.otp_code = otp
-        user.otp_expires_at = otp_expiry
-        db.commit()
-
+        otp = generate_random_otp()
+        # save the otp on redis
+        await store_verification_code(login_data.login_id, otp)
         # This is where you send OTP to the user via email/SMS
         subject = "Verify Your OTP Code"
         body = f"Dear {user.email},\n\nYour OTP code is: {otp}\n\nIt will expire in 10 minutes.\n\nRegards,\nAdmin Taye"
@@ -331,26 +322,28 @@ async def create_user(
         # Generate a unique email for phone-only users
         user_email = user_data.email
         if not user_email and user_data.phone:
-            # Generate unique email using phone number
             import uuid
             unique_suffix = str(uuid.uuid4().hex)[:8]
-            user_email = f"phone_{user_data.phone}_{unique_suffix}@temp.local"
+            # Changed the temporary email domain from '@temp.local' to '@example.com'
+            # because Pydantic v2 rejects '.local' domains as invalid email addresses.
+            # '@example.com' is a safe, valid dummy domain for testing and auto-generated users.
+            user_email = f"phone_{user_data.phone}_{unique_suffix}@example.com"
 
         # Determine OTP
         if user_data.email:
-            otp = generate_otp()
+            otp = generate_random_otp()
+            # save the otp on redis
+            await store_verification_code(user_data.email, otp)
         else:
             otp = "123456"  # Static OTP for phone-only registration
-
-        otp_expiry = datetime.utcnow() + timedelta(minutes=10)
+            # save the otp on redis by phone number
+            await store_verification_code(user_data.phone, otp)
 
         # Create new user
         db_user = User(
             email=user_email,
             phone=user_data.phone,
             password=get_password_hash(user_data.password),
-            otp_code=otp,
-            otp_expires_at=otp_expiry,
             is_verified=False,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
@@ -371,6 +364,7 @@ async def create_user(
         return db_user
 
     except Exception as e:
+        print(e)
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -412,19 +406,15 @@ async def verify_otp(data: OTPVerify, db: Session = Depends(get_db)):
                 "refresh_token": refresh_token,
                 "token_type": "bearer"
             }
-
-        if user.otp_code != data.otp:
+        is_otp_valid = await verify_code(data.email if data.email else data.phone, data.otp)
+        if not is_otp_valid:
             db.rollback()
             raise HTTPException(status_code=400, detail="Invalid OTP")
 
-        if datetime.utcnow() > user.otp_expires_at:
-            db.rollback()
-            raise HTTPException(status_code=400, detail="OTP expired")
-
         # Mark user as verified
+        # save email of phone who is recently validated otp
+        await set_email_verified(data.email if data.email else data.phone)
         user.is_verified = True
-        user.otp_code = None
-        user.otp_expires_at = None
         user.updated_at = datetime.utcnow()
 
         access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -484,19 +474,18 @@ async def verify_otp(data: OTPVerify, db: Session = Depends(get_db)):
 
 @router.post("/resend-otp")
 async def resend_otp(
-    email: Optional[str] = Body(None, embed=True),
-    phone: Optional[str] = Body(None, embed=True),
+    data: ReSendOTPRequest,
     db: Session = Depends(get_db)
 ):
-    if not email and not phone:
+    if not data.email and not data.phone:
         raise HTTPException(status_code=400, detail="Email or phone is required.")
 
     # Query user by email or phone
     user = None
-    if email:
-        user = db.query(User).filter(User.email == email).first()
-    elif phone:
-        user = db.query(User).filter(User.phone == phone).first()
+    if data.email:
+        user = db.query(User).filter(User.email == data.email).first()
+    elif data.phone:
+        user = db.query(User).filter(User.phone == data.phone).first()
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -505,21 +494,18 @@ async def resend_otp(
         return {"message": "User already verified"}
 
     # Refresh OTP and expiry
-    if user.email:
-        # For email users: generate new OTP
-        otp = generate_otp()
-        user.otp_code = otp
+    if data.email:
+        otp = generate_random_otp()
+        # save the otp on redis
+        await store_verification_code(data.email, otp)
         subject = "Your New OTP Code for Verification"
         body = f"Hi {user.email},\n\nYour new OTP code is: {otp}\nThis code will expire in 10 minutes.\n\nThanks!"
         await send_email_async(subject, user.email, body)
     else:
         # For phone-only users: use static OTP
-        user.otp_code = "123456"  # same OTP
+        otp = "123456"  # same OTP
+        await store_verification_code(data.phone, otp)
         # No SMS sending since SMS provider is not configured
-
-    # Refresh expiry
-    user.otp_expires_at = datetime.utcnow() + timedelta(minutes=10)
-    db.commit()
 
     return {
         "message": "A new OTP has been set. Check your contact method.",
@@ -533,3 +519,82 @@ async def logout(
     db: Session = Depends(get_db)
 ):
     return {"message": "Successfully logged out and token invalidated"}
+
+@router.post("/create-admin", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+async def create_admin(user_data: UserCreate, db: Session = Depends(get_db)):
+    # Ensure either email or phone is provided
+    if not user_data.email and not user_data.phone:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Either email or phone number must be provided."
+        )
+
+    # Check if verified email already exists
+    if user_data.email:
+        verified_email_user = db.query(User).filter(
+            User.email == user_data.email,
+            User.is_verified == True
+        ).first()
+        if verified_email_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered and verified."
+            )
+
+    # Check if verified phone already exists
+    if user_data.phone:
+        verified_phone_user = db.query(User).filter(
+            User.phone == user_data.phone,
+            User.is_verified == True
+        ).first()
+        if verified_phone_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Phone number already registered and verified."
+            )
+
+    # Delete all unverified users with same email or phone
+    if user_data.email:
+        db.query(User).filter(
+            User.email == user_data.email,
+            User.is_verified == False
+        ).delete()
+    if user_data.phone:
+        db.query(User).filter(
+            User.phone == user_data.phone,
+            User.is_verified == False
+        ).delete()
+
+    # Generate a unique email for phone-only users
+    user_email = user_data.email
+    if not user_email and user_data.phone:
+        import uuid
+        unique_suffix = str(uuid.uuid4().hex)[:8]
+        user_email = f"phone_{user_data.phone}_{unique_suffix}@example.com"
+    # Create user as admin
+    db_user = User(
+        email=user_email,
+        phone=user_data.phone,
+        password=get_password_hash(user_data.password),
+        role=Role.admin,
+        is_verified=True,  # Admins auto-verified
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+
+    # Create AdminRole entry
+    admin_role = AdminRole(user_id=db_user.user_id)
+    db.add(admin_role)
+    db.commit()
+    db.refresh(admin_role)
+
+    # Assign default permissions
+    default_perms = ["view_users", "edit_users", "toggle-admin", "activity-logs"]
+    for perm in default_perms:
+        db.add(AdminPermission(admin_id=admin_role.id, permission=perm))
+    db.commit()
+
+    return db_user

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.orm import Session
 from typing import List
+from app.core.security import create_stripe_payment_method
 from app.database.database import get_db
 from app.models.payment_cards import PaymentCard
 from app.schemas.payment_cards import PaymentCardCreate, PaymentCardUpdate, PaymentCardResponse
@@ -18,57 +19,70 @@ def create_payment_card(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Step 1: Create Stripe customer if needed
-    if not current_user.stripe_customer_id:
-        customer = stripe.Customer.create(email=current_user.email)
-        current_user.stripe_customer_id = customer.id
-        db.commit()
-    else:
-        customer = stripe.Customer.retrieve(current_user.stripe_customer_id)
-
-    # Step 2: Attach payment method to customer
     try:
-        stripe.PaymentMethod.attach(
-            payment_card.stripe_payment_method_id,
-            customer=customer.id,
-        )
-    except stripe.error.StripeError as e:
-        raise HTTPException(status_code=400, detail=f"Stripe error: {e.user_message}")
+        # Step 1: Create Stripe customer if needed
+        # to create demo payment method use test token uncomment below line 
+        # payment_card.stripe_payment_method_id = create_stripe_payment_method()
+        # print(current_user.stripe_customer_id)
+        print(payment_card.stripe_payment_method_id)
+        if not current_user.stripe_customer_id:
+            customer = stripe.Customer.create(email=current_user.email)
+            current_user.stripe_customer_id = customer.id
+            db.commit()
+        else:
+            customer = stripe.Customer.retrieve(current_user.stripe_customer_id)
 
-    # Step 3: Set as default if specified
-    if payment_card.is_default:
-        stripe.Customer.modify(
-            customer.id,
-            invoice_settings={"default_payment_method": payment_card.stripe_payment_method_id},
+
+        # Step 2: Attach payment method to customer
+        # if you get demo payment method from the above create_stripe_payment_method function and pass 
+        # the stripe payment_method_id in the request body you must comment the below try except block
+        # commented block is for test token only we must use the below code in production
+        try:
+            
+            stripe.PaymentMethod.attach(
+                payment_card.stripe_payment_method_id,
+                customer=customer.id,
+            )
+        except stripe.error.StripeError as e:
+            raise HTTPException(status_code=400, detail=f"Stripe error: {e.user_message}")
+
+        # Step 3: Set as default if specified
+        if payment_card.is_default:
+            stripe.Customer.modify(
+                customer.id,
+                invoice_settings={"default_payment_method": payment_card.stripe_payment_method_id},
+            )
+            db.query(PaymentCard).filter(
+                PaymentCard.user_id == current_user.user_id,
+                PaymentCard.is_default == True
+            ).update({"is_default": False})
+            db.commit()
+
+        # Step 4: Retrieve card metadata from Stripe
+        method = stripe.PaymentMethod.retrieve(payment_card.stripe_payment_method_id)
+        card_info = method.card
+
+        new_card = PaymentCard(
+            user_id=current_user.user_id,
+            stripe_customer_id=customer.id,
+            stripe_payment_method_id=payment_card.stripe_payment_method_id,
+            brand=card_info.brand,
+            last4=card_info.last4,
+            exp_month=card_info.exp_month,
+            exp_year=card_info.exp_year,
+            is_default=payment_card.is_default,
+            is_active=True,
+            card_type=payment_card.card_type,
         )
-        db.query(PaymentCard).filter(
-            PaymentCard.user_id == current_user.user_id,
-            PaymentCard.is_default == True
-        ).update({"is_default": False})
+
+        db.add(new_card)
         db.commit()
-
-    # Step 4: Retrieve card metadata from Stripe
-    method = stripe.PaymentMethod.retrieve(payment_card.stripe_payment_method_id)
-    card_info = method.card
-
-    new_card = PaymentCard(
-        user_id=current_user.user_id,
-        stripe_customer_id=customer.id,
-        stripe_payment_method_id=payment_card.stripe_payment_method_id,
-        brand=card_info.brand,
-        last4=card_info.last4,
-        exp_month=card_info.exp_month,
-        exp_year=card_info.exp_year,
-        is_default=payment_card.is_default,
-        is_active=True,
-        card_type=payment_card.card_type,
-    )
-
-    db.add(new_card)
-    db.commit()
-    db.refresh(new_card)
-    
-    return new_card
+        db.refresh(new_card)
+        
+        return new_card
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail="Internal_server_error")
 @router.get("/", response_model=List[PaymentCardResponse])
 def get_my_payment_cards(
     db: Session = Depends(get_db),
@@ -78,6 +92,8 @@ def get_my_payment_cards(
         PaymentCard.user_id == current_user.user_id,
         PaymentCard.is_active == True
     ).all()
+    for card in cards:
+        print(card.payment_card_id, card.is_default)
     return cards
 
 
@@ -134,7 +150,18 @@ def set_default_card(
     card = db.query(PaymentCard).filter_by(payment_card_id=payment_card_id).first()
 
     if not card or card.user_id != current_user.user_id:
+        print(card.user_id, current_user.user_id)
         raise HTTPException(status_code=403, detail="Not authorized or card not found")
+    # first we must make false to existing default card because only one card can be default
+    # then we can set this card as default
+    default_card = db.query(PaymentCard).filter_by(
+        user_id=current_user.user_id,
+        is_default=True
+    ).first()
+    if default_card:
+        default_card.is_default = False
+        db.commit()
+        db.refresh(default_card)
       # Unset existing default
     db.query(PaymentCard).filter(
         PaymentCard.user_id == current_user.user_id,

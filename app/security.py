@@ -62,6 +62,7 @@ def get_current_user(db: Session = Depends(get_db), token: dict = Depends(verify
     print(f"Fetched user: {user}")  # Print the fetched user
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    print(user.role,"==============")
     return user
 
 # Custom JWTBearer for security
