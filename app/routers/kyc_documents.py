@@ -94,7 +94,7 @@ def get_my_kyc(
     db: Session = Depends(get_db),
     token: dict = Depends(JWTBearer()),
 ):
-    print(123)
+    current_user = get_current_user(db, token)
     kyc = db.query(KYCDocument).options(joinedload(KYCDocument.user)).filter(
         KYCDocument.user_id == current_user.user_id
     ).first()
