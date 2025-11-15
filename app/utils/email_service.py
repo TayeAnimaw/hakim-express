@@ -25,3 +25,9 @@ async def send_email_async(subject: str, recipient: str, body: str):
     except Exception as e:
         print(f"================= {e} =============")
         return {"error": str(e)}
+
+
+def normalize_email(email: str) -> str:
+    if not email:
+        return ""
+    return email.strip().lower()
