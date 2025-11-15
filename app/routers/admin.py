@@ -7,6 +7,8 @@ from app.database.database import get_db
 from app.security import get_current_user, check_permission
 from datetime import datetime
 
+from app.utils.email_service import normalize_email
+
 router = APIRouter()
 
 @router.get("/users", response_model=list[UserOut])
@@ -93,7 +95,9 @@ def update_user(
     - Phone number
     - Email address
     """
-    print(current_user.role,"======================================")
+    # normalize email because email is not case sensitive
+    if(not user_update.email):
+        user_update.email = normalize_email(user_update.email)
     if current_user.role != Role.admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

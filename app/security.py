@@ -15,6 +15,7 @@ from app.models.users import User, Role
 
 
 from app.database.database import get_db
+from app.utils.email_service import normalize_email
 # Password utilities
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -80,8 +81,9 @@ class JWTBearer(HTTPBearer):
         return verify_access_token(token)
 def authenticate_user(db: Session, login_id: str, password: str):
     # Try to find user by email or phone
+    # email is not case senstive 
     user = db.query(User).filter(
-        (User.email == login_id) | (User.phone == login_id)
+        (User.email == normalize_email(login_id)) | (User.phone == login_id)
     ).first()
 
     if not user:

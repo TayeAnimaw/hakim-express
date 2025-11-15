@@ -8,7 +8,7 @@ from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from app.core.config import settings
 from app.security import create_access_token, JWTBearer, get_password_hash, verify_access_token, verify_password # You already use this for login
-from app.utils.email_service import send_email_async  # You used this in registration
+from app.utils.email_service import normalize_email, send_email_async  # You used this in registration
 import os
 from app.security import get_current_user  
 from typing import Optional
@@ -125,6 +125,8 @@ async def change_password(
 # Forgot password (reset password flow via email)
 @router.post("/forgot-password")
 async def forgot_password(email: str, db: Session = Depends(get_db)):
+    # email is not case sensitive
+    email = normalize_email(email)
     user = db.query(User).filter(User.email == email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -196,6 +198,8 @@ async def update_user_profile(
 
     # Update User model fields
     if email is not None:
+        # email is not case senstive
+        email = normalize_email(email)
         user.email = email
     if is_flagged is not None:
         user.is_flagged = is_flagged

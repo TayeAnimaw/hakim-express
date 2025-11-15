@@ -11,7 +11,7 @@ from app.security import get_password_hash, verify_password
 from app.core.config import settings
 from typing import Annotated
 from app.schemas.users import ReSendOTPRequest, Token, UserLogin, OTPVerify, UserCreate, UserOut, UserUpdate, RefreshTokenRequest
-from app.utils.email_service import send_email_async
+from app.utils.email_service import normalize_email, send_email_async
 from fastapi import Body
 from fastapi import Request
 from jose import JWTError, jwt
@@ -276,6 +276,9 @@ async def create_user(
     db: Session = Depends(get_db)
 ):
     # Ensure either email or phone is provided
+    # emial is not case senstive
+    if user_data.email:
+        user_data.email = normalize_email(user_data.email)
     if not user_data.email and not user_data.phone:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -381,7 +384,9 @@ async def verify_otp(data: OTPVerify, db: Session = Depends(get_db)):
         # Validate that either email or phone is provided
         if not data.email and not data.phone:
             raise HTTPException(status_code=400, detail="Email or phone number is required for verification.")
-
+        # email is not case senstive
+        if data.email:
+            data.email = normalize_email(data.email)
         # Retrieve user using email or phone
         query = db.query(User).with_for_update()
         if data.email:
@@ -482,7 +487,9 @@ async def resend_otp(
 ):
     if not data.email and not data.phone:
         raise HTTPException(status_code=400, detail="Email or phone is required.")
-
+    # email is not case senstive
+    if data.email:
+        data.email = normalize_email(data.email)
     # Query user by email or phone
     user = None
     if data.email:
@@ -533,7 +540,9 @@ async def create_admin(user_data: UserCreate, db: Session = Depends(get_db)):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Either email or phone number must be provided."
         )
-
+    # email is not case senstive
+    if user_data.email:
+        user_data.email = normalize_email(user_data.email)
     # Check if verified email already exists
     if user_data.email:
         verified_email_user = db.query(User).filter(
