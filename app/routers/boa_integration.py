@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 import logging
+from app.utils.boa_api_service import boa_api
 
 from app.database.database import get_db
 from app.utils.boa_service import (
@@ -58,7 +59,8 @@ async def get_beneficiary_name_boa(
     - Headers: `x-api-key`, `Authorization`
     """
     try:
-        result = await BoABeneficiaryService.fetch_beneficiary_name(account_id, db)
+        # change the implimentation to boa_api service direct call
+        result =await boa_api.fetch_beneficiary_name(account_id)
         if not result:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -101,7 +103,8 @@ async def get_beneficiary_name_other_bank(
     - Headers: `x-api-key`, `Authorization`
     """
     try:
-        result = await BoABeneficiaryService.fetch_beneficiary_name_other_bank(bank_id, account_id, db)
+        # change the implimentation to boa_api service direct call
+        result = await boa_api.fetch_beneficiary_name_other_bank(bank_id, account_id)
         if not result:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -148,13 +151,19 @@ async def initiate_within_boa_transfer(
     - Body: `{"client_id": "{{client_id}}", "amount": "100", "accountNumber": "7260865", "reference": "stringETSW"}`
     """
     try:
-        result = await BoATransferService.initiate_within_boa_transfer(
-            transaction_id=request.transaction_id,
+        # change the implimentation to boa_api service direct call
+        result = await boa_api.initiate_within_boa_transfer(
             amount=request.amount,
             account_number=request.account_number,
-            reference=request.reference,
-            db=db
+            reference=request.reference
         )
+        # result = await BoATransferService.initiate_within_boa_transfer(
+        #     transaction_id=request.transaction_id,
+        #     amount=request.amount,
+        #     account_number=request.account_number,
+        #     reference=request.reference,
+        #     db=db
+        # )
         return BoATransferResponse(**result)
     except BoAServiceError as e:
         logger.error(f"Service error initiating BoA transfer: {str(e)}")
@@ -196,15 +205,23 @@ async def initiate_other_bank_transfer(
     - Body: `{"client_id": "{{client_id}}", "amount": "{{amount}}", "bankCode": "{{bank_id}}", "receiverName": "{{other_bank_receiverName}}", "accountNumber": "{{other_bank_account_number}}", "reference": "{{otherbank_transfer_reference}}"}`
     """
     try:
-        result = await BoATransferService.initiate_other_bank_transfer(
-            transaction_id=request.transaction_id,
+        # change the implimentation to boa_api service direct call
+        result = await boa_api.initiate_other_bank_transfer(
             amount=request.amount,
             bank_code=request.bank_code,
             account_number=request.account_number,
             reference=request.reference,
-            receiver_name=request.receiver_name,
-            db=db
+            receiver_name=request.receiver_name
         )
+        # result = await BoATransferService.initiate_other_bank_transfer(
+        #     transaction_id=request.transaction_id,
+        #     amount=request.amount,
+        #     bank_code=request.bank_code,
+        #     account_number=request.account_number,
+        #     reference=request.reference,
+        #     receiver_name=request.receiver_name,
+        #     db=db
+        # )
         return BoATransferResponse(**result)
     except BoAServiceError as e:
         logger.error(f"Service error initiating other bank transfer: {str(e)}")
@@ -244,8 +261,8 @@ async def initiate_money_send(
     """
     try:
         # Import here to avoid circular imports
-        from app.utils.boa_api_service import boa_api
-
+        
+         
         result = await boa_api.initiate_money_send(
             amount=request.amount,
             remitter_name=request.remitter_name,
@@ -315,7 +332,9 @@ async def check_transaction_status(
     - Headers: `x-api-key`, `Authorization`
     """
     try:
-        result = await BoAStatusService.check_transaction_status(transaction_id, db)
+        # change the implimentation to boa_api service direct call
+        result = await boa_api.check_transaction_status(transaction_id)
+        # result = await BoAStatusService.check_transaction_status(transaction_id, db)
         if not result:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -356,7 +375,9 @@ async def get_currency_rate(
     - Example: `{{base_url}}/rate/USD`
     """
     try:
-        result = await BoARateService.get_currency_rate(base_currency.upper(), db)
+        # change the implimentation to boa_api service direct call
+        result = await boa_api.get_currency_rate(base_currency.upper())
+        # result = await BoARateService.get_currency_rate(base_currency.upper(), db)
         if not result:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -392,7 +413,9 @@ async def get_balance(
     - Body: `{"client_id": "{{client_id}}"}`
     """
     try:
-        result = await BoARateService.get_balance(db)
+        # change the implimentation to boa_api service direct call
+        result = await boa_api.get_balance()
+        # result = await BoARateService.get_balance(db)
         if not result:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -427,7 +450,9 @@ async def get_bank_list(
     - Headers: `x-api-key`, `Authorization`
     """
     try:
-        result = await BoABankService.get_bank_list(db)
+        # change the implimentation to boa_api service direct call
+        result = await boa_api.get_bank_list()
+        # result = await BoABankService.get_bank_list(db)
         return [BoABankListResponse(**bank) for bank in result]
     except BoAServiceError as e:
         logger.error(f"Service error getting bank list: {str(e)}")
@@ -454,7 +479,9 @@ async def refresh_bank_list(
     - `banks`: Array of all banks with their details
     """
     try:
-        result = await BoABankService.get_bank_list(db)
+        # change the implimentation to boa_api service direct call
+        result = await boa_api.get_bank_list()
+        # result = await BoABankService.get_bank_list(db)
         return {
             "message": "Bank list refreshed successfully",
             "banks_count": len(result),
@@ -484,7 +511,7 @@ async def test_boa_connection():
     """
     try:
         # Import here to avoid circular imports
-        from app.utils.boa_api_service import boa_api
+        # from app.utils.boa_api_service import boa_api
 
         # Try to get access token (this will test authentication)
         await boa_api._ensure_authenticated()
