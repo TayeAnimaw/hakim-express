@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.models.users import User, Role
 from app.schemas.users import UserOut, UserUpdate, AdminUserUpdate, UserAdminUpdate
 from app.database.database import get_db
-from app.security import get_current_user, check_permission
+from app.security import JWTBearer, get_current_user, check_permission
 from datetime import datetime
 
 from app.utils.email_service import normalize_email
@@ -14,7 +14,7 @@ router = APIRouter()
 @router.get("/users", response_model=list[UserOut])
 def get_users(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer())
     # current_user: User = Depends(check_permission("Can view users"))  # Correct usage
 ):
     """
@@ -23,6 +23,7 @@ def get_users(
     Returns:
     - List of users with their KYC documents
     """
+    current_user = get_current_user(db, token)
     if current_user.role != Role.admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -36,7 +37,7 @@ def admin_manage_user(
     user_id: int,
     user_update: AdminUserUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer())
     # current_user: User = Depends(check_permission("Can edit user profile info"))  # Example with different permission
 ):
     """
@@ -47,6 +48,7 @@ def admin_manage_user(
     - Weekly limit amount
     - Admin notes
     """
+    current_user = get_current_user(db, token)
     if current_user.role != Role.admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -84,7 +86,7 @@ def update_user(
     user_id: int,
     user_update: UserAdminUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer())
 ):
     """
     Update user profile information (Admin only)
@@ -95,6 +97,7 @@ def update_user(
     - Phone number
     - Email address
     """
+    current_user = get_current_user(db, token)
     # normalize email because email is not case sensitive
     if(not user_update.email):
         user_update.email = normalize_email(user_update.email)
@@ -142,13 +145,14 @@ def update_user(
 def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer())
 ):
     """
     Delete a user account (Admin only)
     
     Warning: This action is irreversible
     """
+    current_user = get_current_user(db, token)
     if current_user.role != Role.admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
