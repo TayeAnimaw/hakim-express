@@ -87,11 +87,13 @@ class BankOfAbyssiniaAPI:
     async def _ensure_authenticated(self) -> str:
         """Ensure we have a valid access token"""
         # Check in-memory cache first
+        print("========")
         if self._token_cache and self._is_token_valid(self._token_cache):
             return self._token_cache["access_token"]
 
         # Check file cache
         disk_token = self._load_token_file()
+        print(disk_token)
         if disk_token and self._is_token_valid(disk_token):
             self._token_cache.update(disk_token)
             return disk_token["access_token"]
@@ -182,6 +184,7 @@ class BankOfAbyssiniaAPI:
                 params=params,
                 headers=headers
             )
+            print(response.json)
             response.raise_for_status()
 
             return response.json()
@@ -316,3 +319,5 @@ class BankOfAbyssiniaAPI:
 
 # Global instance for dependency injection
 boa_api = BankOfAbyssiniaAPI()
+
+print(boa_api.api_key)
