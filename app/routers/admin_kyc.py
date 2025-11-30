@@ -7,14 +7,18 @@ from app.database.database import get_db
 from app.models.kyc_documents import KYCDocument, KYCStatus
 from app.models.users import User, Role
 from app.schemas.kyc_documents import KYCDocumentOut
-from app.security import get_current_user
+from app.security import JWTBearer, get_current_user
 from pydantic import BaseModel
 
 router = APIRouter()
 
 
 # Admin role check
-def require_admin(user: User = Depends(get_current_user)) -> User:
+def require_admin(
+    db: Session = Depends(get_db),
+    token: dict = Depends(JWTBearer()),) -> User:
+    # always token pass in header part not in url format 
+    user = get_current_user(db,token)
     if user.role not in [Role.admin, Role.finance_officer, Role.support]:
         raise HTTPException(status_code=403, detail="Not authorized")
     return user
