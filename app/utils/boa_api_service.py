@@ -224,12 +224,12 @@ class BankOfAbyssiniaAPI:
 
     async def fetch_beneficiary_name(self, account_id: str) -> Dict[str, Any]:
         """Fetch beneficiary name for BoA account"""
-        endpoint = f"/getAccount/{account_id}"
+        endpoint = f"getAccount/{account_id}"
         return await self._make_request("GET", endpoint)
 
     async def fetch_beneficiary_name_other_bank(self, bank_id: str, account_id: str) -> Dict[str, Any]:
         """Fetch beneficiary name for other bank account"""
-        endpoint = f"/otherBank/getAccount/{bank_id}/{account_id}"
+        endpoint = f"otherBank/getAccount/{bank_id}/{account_id}"
         return await self._make_request("GET", endpoint)
 
     async def initiate_within_boa_transfer(
@@ -239,7 +239,7 @@ class BankOfAbyssiniaAPI:
         reference: str
     ) -> Dict[str, Any]:
         """Initiate transfer within Bank of Abyssinia"""
-        endpoint = "/transferWithin"
+        endpoint = "transferWithin"
         data = {
             "client_id": self.client_id,
             "amount": amount,
@@ -250,7 +250,7 @@ class BankOfAbyssiniaAPI:
 
     async def get_bank_list(self) -> Dict[str, Any]:
         """Get list of available banks for other bank transfers"""
-        endpoint = "/otherBank/bankId"
+        endpoint = "otherBank/bankId"
         return await self._make_request("GET", endpoint)
 
     async def initiate_other_bank_transfer(
@@ -262,7 +262,7 @@ class BankOfAbyssiniaAPI:
         receiver_name: str
     ) -> Dict[str, Any]:
         """Initiate transfer to other bank using EthSwitch"""
-        endpoint = "/otherBank/transferEthswitch"
+        endpoint = "otherBank/transferEthswitch"
         data = {
             "client_id": self.client_id,
             "amount": amount,
@@ -275,17 +275,17 @@ class BankOfAbyssiniaAPI:
 
     async def check_transaction_status(self, transaction_id: str) -> Dict[str, Any]:
         """Check status of a transaction"""
-        endpoint = f"/transactionStatus/{transaction_id}"
+        endpoint = f"transactionStatus/{transaction_id}"
         return await self._make_request("GET", endpoint)
 
     async def get_currency_rate(self, base_currency: str) -> Dict[str, Any]:
         """Get currency exchange rate"""
-        endpoint = f"/rate/{base_currency}"
+        endpoint = f"rate/{base_currency}"
         return await self._make_request("GET", endpoint)
 
     async def get_balance(self) -> Dict[str, Any]:
         """Get remitter account balance"""
-        endpoint = "/getBalance"
+        endpoint = "getBalance"
         data = {
             "client_id": self.client_id
         }
@@ -303,7 +303,7 @@ class BankOfAbyssiniaAPI:
         secret_code: str
     ) -> Dict[str, Any]:
         """Initiate money send (wallet transfer)"""
-        endpoint = "/moneySend"
+        endpoint = "moneySend"
         data = {
             "client_id": self.client_id,
             "amount": amount,
