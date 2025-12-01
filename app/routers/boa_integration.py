@@ -453,6 +453,7 @@ async def get_bank_list(
         # change the implimentation to boa_api service direct call
         result = await boa_api.get_bank_list()
         # result = await BoABankService.get_bank_list(db)
+        print(result)
         return [BoABankListResponse(**bank) for bank in result]
     except BoAServiceError as e:
         logger.error(f"Service error getting bank list: {str(e)}")
