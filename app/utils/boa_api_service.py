@@ -74,6 +74,7 @@ class BankOfAbyssiniaAPI:
     def _load_token_file(self) -> Optional[Dict[str, Any]]:
         """Load token from file cache"""
         try:
+            print("Token file path:", self.token_file)
             if os.path.exists(self.token_file):
                 with open(self.token_file, "r") as f:
                     data = json.load(f)
