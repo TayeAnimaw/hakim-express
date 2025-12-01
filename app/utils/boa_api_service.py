@@ -31,20 +31,19 @@ class BankOfAbyssiniaAPI:
     """
 
     def __init__(self):
-        self.base_url = settings.BOA_BASE_URL  # Already includes remitter name
+        self.base_url = settings.BOA_BASE_URL
         self.client_id = settings.BOA_CLIENT_ID
         self.client_secret = settings.BOA_CLIENT_SECRET
         self.api_key = settings.BOA_X_API_KEY
-        # read from file if exists else assign from settings
+        self.token_file = settings.BOA_TOKEN_FILE
+        self.auth_prefix = settings.BOA_AUTH_PREFIX
         token_data = self._load_token_file()
         print("loaded token data:", token_data)
         if token_data and "refresh_token" in token_data:
             self.refresh_token = token_data["refresh_token"]
         else:
             self.refresh_token = settings.BOA_REFRESH_TOKEN
-        self.auth_prefix = settings.BOA_AUTH_PREFIX
-        self.token_file = settings.BOA_TOKEN_FILE
-
+        
         # Token management
         self._access_token = None
         self._token_expires_at = None
