@@ -61,6 +61,7 @@ async def get_beneficiary_name_boa(
     try:
         # change the implimentation to boa_api service direct call
         result =await boa_api.fetch_beneficiary_name(account_id)
+        print(result)
         if not result:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -105,6 +106,7 @@ async def get_beneficiary_name_other_bank(
     try:
         # change the implimentation to boa_api service direct call
         result = await boa_api.fetch_beneficiary_name_other_bank(bank_id, account_id)
+        print(result)
         if not result:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -164,6 +166,7 @@ async def initiate_within_boa_transfer(
         #     reference=request.reference,
         #     db=db
         # )
+        print(result)
         return BoATransferResponse(**result)
     except BoAServiceError as e:
         logger.error(f"Service error initiating BoA transfer: {str(e)}")
@@ -213,6 +216,7 @@ async def initiate_other_bank_transfer(
             reference=request.reference,
             receiver_name=request.receiver_name
         )
+        print(result)
         # result = await BoATransferService.initiate_other_bank_transfer(
         #     transaction_id=request.transaction_id,
         #     amount=request.amount,
@@ -273,6 +277,7 @@ async def initiate_money_send(
             reference=request.reference,
             secret_code=request.secret_code
         )
+        print(result)
 
         if not result:
             raise HTTPException(
@@ -335,6 +340,7 @@ async def check_transaction_status(
         # change the implimentation to boa_api service direct call
         result = await boa_api.check_transaction_status(transaction_id)
         # result = await BoAStatusService.check_transaction_status(transaction_id, db)
+        print(result)
         if not result:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -378,6 +384,7 @@ async def get_currency_rate(
         # change the implimentation to boa_api service direct call
         result = await boa_api.get_currency_rate(base_currency.upper())
         # result = await BoARateService.get_currency_rate(base_currency.upper(), db)
+        print(result)
         if not result:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -416,6 +423,7 @@ async def get_balance(
         # change the implimentation to boa_api service direct call
         result = await boa_api.get_balance()
         # result = await BoARateService.get_balance(db)
+        print(result)
         if not result:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
