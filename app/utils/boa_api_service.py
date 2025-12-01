@@ -37,6 +37,7 @@ class BankOfAbyssiniaAPI:
         self.api_key = settings.BOA_X_API_KEY
         # read from file if exists else assign from settings
         token_data = self._load_token_file()
+        print("loaded token data:", token_data)
         if token_data and "refresh_token" in token_data:
             self.refresh_token = token_data["refresh_token"]
         else:
