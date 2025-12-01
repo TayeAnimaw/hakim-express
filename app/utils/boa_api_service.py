@@ -35,7 +35,12 @@ class BankOfAbyssiniaAPI:
         self.client_id = settings.BOA_CLIENT_ID
         self.client_secret = settings.BOA_CLIENT_SECRET
         self.api_key = settings.BOA_X_API_KEY
-        self.refresh_token = settings.BOA_REFRESH_TOKEN
+        # read from file if exists else assign from settings
+        token_data = self._load_token_file()
+        if token_data and "refresh_token" in token_data:
+            self.refresh_token = token_data["refresh_token"]
+        else:
+            self.refresh_token = settings.BOA_REFRESH_TOKEN
         self.auth_prefix = settings.BOA_AUTH_PREFIX
         self.token_file = settings.BOA_TOKEN_FILE
 
@@ -96,6 +101,7 @@ class BankOfAbyssiniaAPI:
         """Ensure we have a valid access token"""
         # Check in-memory cache first
         print("========")
+        print(self.refresh_token)
         if self._token_cache and self._is_token_valid(self._token_cache):
             return self._token_cache["access_token"]
 
