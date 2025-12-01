@@ -48,11 +48,19 @@ class BankOfAbyssiniaAPI:
         self.client = httpx.AsyncClient(
             base_url=self.base_url,
             timeout=30.0,
-            limits=httpx.Limits(max_keepalive_connections=20, max_connections=100)
+            limits=httpx.Limits(max_keepalive_connections=20, max_connections=100),
+            event_hooks={
+                "request": [self._log_request_url]
+            }
         )
-
+    def update_refresh_token(self, new_refresh_token: str) -> None:
+        """update the refresh token in memory"""
+        self.refresh_token = new_refresh_token
+        
     async def __aenter__(self):
         return self
+    async def _log_request_url(self, request: httpx.Request):
+        print(f"➡️ Request URL: {request.url}")
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.client.aclose()
@@ -108,7 +116,8 @@ class BankOfAbyssiniaAPI:
             raise BoAAuthenticationError("Missing required BoA API credentials")
 
         token_url = f"{self.base_url}/oauth2/token"
-
+        print(f"➡️ Request URL: {token_url}")
+        print("Refresh token:", self.refresh_token)
         payload = {
             "client_id": self.client_id,
             "client_secret": self.client_secret,
@@ -125,7 +134,7 @@ class BankOfAbyssiniaAPI:
                     headers={"Content-Type": "application/json"}
                 )
                 response.raise_for_status()
-
+                
                 token_data = response.json()
 
                 access_token = token_data.get("access_token")
@@ -141,6 +150,7 @@ class BankOfAbyssiniaAPI:
 
                 # Cache in memory and save to file
                 self._token_cache.update(token_info)
+                self.update_refresh_token(refresh_token)
                 self._save_token_file(token_info)
 
                 logger.info("Successfully authenticated with Bank of Abyssinia API")
