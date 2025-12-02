@@ -59,15 +59,27 @@ async def get_beneficiary_name_boa(
     - Headers: `x-api-key`, `Authorization`
     """
     try:
-        # change the implimentation to boa_api service direct call
+        # change the implementation to boa_api service direct call
         result =await boa_api.fetch_beneficiary_name(account_id)
-        print(result)
-        if not result:
+        result_body_list = result.get("body", [])
+
+        if not result_body_list:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Beneficiary not found or API error"
             )
-        return BoABeneficiaryResponse(**result)
+
+        # BoA returns a list with one object, so take the first item
+        boa_data = result_body_list[0]
+
+        mapped_data = {
+            "customer_name": boa_data.get("customerName"),
+            "account_currency": boa_data.get("accountCurrency"),
+            "enquiry_status": None,   # BoA does not return this field
+            "cached": False
+        }
+
+        return BoABeneficiaryResponse(**mapped_data)
     except BoAServiceError as e:
         logger.error(f"Service error fetching BoA beneficiary: {str(e)}")
         raise HTTPException(
