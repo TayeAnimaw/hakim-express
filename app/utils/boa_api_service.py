@@ -201,37 +201,24 @@ class BankOfAbyssiniaAPI:
                 params=params,
                 headers=headers
             )
-            print(response.json)
-            response.raise_for_status()
 
-            return response.json()
+            # DO NOT raise_for_status → BoA returns JSON even on 400/404/401
+            result = response.json()
+            result["http_status"] = response.status_code  # keep original status
+            return result
 
-        except httpx.HTTPStatusError as e:
-            error_text = e.response.text
-            logger.error(f"BoA API request failed: {e.response.status_code} - {error_text}")
+        except httpx.RequestError as e:
+            logger.error(f"BoA network error: {str(e)}")
+            return {
+                "header": {
+                    "status": "failed",
+                    "code": 500,
+                    "message": "Network error contacting BOA"
+                },
+                "body": None,
+                "http_status": 500
+            }
 
-            if e.response.status_code == 401:
-                # Token might be expired, reset and retry once
-                self._access_token = None
-                if include_auth:
-                    try:
-                        return await self._make_request(method, endpoint, data, params, include_auth)
-                    except Exception:
-                        raise BoAAuthenticationError(f"Authentication failed after retry: {error_text}")
-                else:
-                    raise BoAAuthenticationError(f"Authentication failed: {error_text}")
-
-            elif e.response.status_code == 429:
-                raise BoARateLimitError(f"Rate limit exceeded: {error_text}")
-            else:
-                raise BoAAPIError(f"API request failed: {error_text}")
-
-        except httpx.TimeoutException:
-            logger.error("BoA API request timed out")
-            raise BoAAPIError("Request timeout - please try again")
-        except Exception as e:
-            logger.error(f"Unexpected error in BoA API request: {str(e)}")
-            raise BoAAPIError(f"Request error: {str(e)}")
 
     # API Methods based on documentation
 

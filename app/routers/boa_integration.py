@@ -1,6 +1,8 @@
 # app/routers/boa_integration.py
 
+import json
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 import logging
@@ -136,60 +138,59 @@ async def get_beneficiary_name_other_bank(
 
 # Transfer Endpoints
 
-@router.post("/transfer/within-boa", response_model=BoATransferResponse, summary="Initiate Within-BOA Transfer", description="Initiates a real-time transfer between accounts within Bank of Abyssinia.")
+@router.post(
+    "/transfer/within-boa",
+    response_model=BoATransferResponse,
+    summary="Initiate Within-BOA Transfer",
+    description="Initiates a real-time transfer between accounts within Bank of Abyssinia."
+)
 async def initiate_within_boa_transfer(
     request: BoATransferRequest,
     db: Session = Depends(get_db)
 ):
-    """
-    Initiate transfer within Bank of Abyssinia.
-
-    This endpoint performs real-time transfers between accounts held at Bank of Abyssinia.
-    The transfer is processed immediately and returns transaction details.
-
-    **Request Body:**
-    - `transaction_id`: Internal transaction reference ID
-    - `amount`: Transfer amount as string
-    - `account_number`: Recipient's BOA account number
-    - `reference`: Unique transaction reference
-
-    **Returns:**
-    - `success`: Boolean indicating if transfer was initiated successfully
-    - `boa_reference`: BOA's unique transaction reference (e.g., "FT23343L0Z8C")
-    - `unique_identifier`: Unique transaction identifier
-    - `transaction_status`: Current status ("Live", "success", "failed")
-
-    **Postman Collection Reference:**
-    - Folder: "with-in-boa"
-    - Request: "transfer"
-    - URL: `{{base_url}}/transferWithin`
-    - Headers: `x-api-key`, `Authorization`
-    - Body: `{"client_id": "{{client_id}}", "amount": "100", "accountNumber": "7260865", "reference": "stringETSW"}`
-    """
     try:
-        # change the implimentation to boa_api service direct call
         result = await boa_api.initiate_within_boa_transfer(
             amount=request.amount,
             account_number=request.account_number,
             reference=request.reference
         )
+
         header = result.get("header", {})
         body = result.get("body", {})
 
+        # BoA Code (not HTTP!)
+        boa_status_code = int(header.get("code", result.get("http_status", 500)))
+
+        # If like 401, 404, 100, 500, return EXACT status
+        if boa_status_code != 200:
+            return JSONResponse(
+                status_code=boa_status_code,
+                content={
+                    "success": False,
+                    "boa_reference": header.get("id"),
+                    "unique_identifier": header.get("uniqueIdentifier"),
+                    "transaction_status": header.get("transactionStatus"),
+                    "message": header.get("message"),
+                    "response": result
+                }
+            )
+
+        # SUCCESS mapping
         mapped_response = {
             "success": header.get("status") == "success",
             "boa_reference": header.get("id"),
             "unique_identifier": header.get("uniqueIdentifier"),
             "transaction_status": header.get("transactionStatus"),
-            "response": result  # full raw response
+            "response": result
         }
 
         return BoATransferResponse(**mapped_response)
-    except BoAServiceError as e:
-        logger.error(f"Service error initiating BoA transfer: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
+
+    except Exception as e:
+        logger.error(f"Unexpected error during BOA transfer: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error", "error": str(e)}
         )
 
 @router.post("/transfer/other-bank", response_model=BoATransferResponse, summary="Initiate Other Bank Transfer", description="Initiates a transfer to an account in another Ethiopian bank using EthSwitch.")
