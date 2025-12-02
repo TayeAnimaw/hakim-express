@@ -458,11 +458,19 @@ async def get_bank_list(
     - Headers: `x-api-key`, `Authorization`
     """
     try:
-        # change the implimentation to boa_api service direct call
         result = await boa_api.get_bank_list()
-        # result = await BoABankService.get_bank_list(db)
-        print(result)
-        return [BoABankListResponse(**bank) for bank in result]
+
+        boa_banks = result.get("body", [])
+        modified_list = [
+            {
+                "bank_id": bank["id"],
+                "institution_name": bank["institutionName"]
+            }
+            for bank in boa_banks
+        ]
+
+        # Return Pydantic validated list
+        return [BoABankListResponse(**bank) for bank in modified_list]
     except BoAServiceError as e:
         logger.error(f"Service error getting bank list: {str(e)}")
         raise HTTPException(
