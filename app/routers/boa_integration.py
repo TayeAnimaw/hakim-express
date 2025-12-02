@@ -162,6 +162,7 @@ async def initiate_within_boa_transfer(
         boa_status_code = int(header.get("code", result.get("http_status", 500)))
 
         # If like 401, 404, 100, 500, return EXACT status
+        print(result)
         if boa_status_code != 200:
             return JSONResponse(
                 status_code=boa_status_code,
@@ -180,7 +181,7 @@ async def initiate_within_boa_transfer(
             "boa_reference": header.get("id"),
             "unique_identifier": header.get("uniqueIdentifier"),
             "transaction_status": header.get("transactionStatus"),
-            "response": result
+            "response": body
         }
 
         return BoATransferResponse(**mapped_response)
