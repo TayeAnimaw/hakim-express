@@ -118,7 +118,9 @@ async def get_beneficiary_name_other_bank(
     try:
         # change the implimentation to boa_api service direct call
         result = await boa_api.fetch_beneficiary_name_other_bank(bank_id, account_id)
+        print("==========================")
         print(result)
+        print("111111111111111111111")
         if not result:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -171,15 +173,18 @@ async def initiate_within_boa_transfer(
             account_number=request.account_number,
             reference=request.reference
         )
-        # result = await BoATransferService.initiate_within_boa_transfer(
-        #     transaction_id=request.transaction_id,
-        #     amount=request.amount,
-        #     account_number=request.account_number,
-        #     reference=request.reference,
-        #     db=db
-        # )
-        print(result)
-        return BoATransferResponse(**result)
+        header = result.get("header", {})
+        body = result.get("body", {})
+
+        mapped_response = {
+            "success": header.get("status") == "success",
+            "boa_reference": header.get("id"),
+            "unique_identifier": header.get("uniqueIdentifier"),
+            "transaction_status": header.get("transactionStatus"),
+            "response": result  # full raw response
+        }
+
+        return BoATransferResponse(**mapped_response)
     except BoAServiceError as e:
         logger.error(f"Service error initiating BoA transfer: {str(e)}")
         raise HTTPException(
