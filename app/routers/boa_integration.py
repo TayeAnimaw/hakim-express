@@ -170,8 +170,7 @@ async def initiate_within_boa_transfer(
                     "boa_reference": header.get("id"),
                     "unique_identifier": header.get("uniqueIdentifier"),
                     "transaction_status": header.get("transactionStatus"),
-                    "message": header.get("message"),
-                    "response": result
+                    "message": header.get("message",result.get("error", {}).get("errorDetails", {}).get("message","Transaction Failed")),
                 }
             )
 
