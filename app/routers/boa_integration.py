@@ -403,18 +403,36 @@ async def get_currency_rate(
     - Example: `{{base_url}}/rate/USD`
     """
     try:
-        # change the implimentation to boa_api service direct call
+        # change the implementation to boa_api service direct call
         result = await boa_api.get_currency_rate(base_currency.upper())
-        # result = await BoARateService.get_currency_rate(base_currency.upper(), db)
-        print(result)
-        if not result:
+        body = result.get("body",{})
+        status_code = result.get("http_status", 200)
+        if(status_code != 200):
+            try:
+                error_message = result.get("error",{}).get("message", "Try again later")
+            except:
+                error_message = "Try again later"
+            return JSONResponse(
+                status_code=status_code,
+                content={
+                    "success": False,
+                    "message": error_message,                  
+                }
+            )
+        if not result or not body:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Currency rate not found or API error"
             )
-        return BoACurrencyRateResponse(**result)
+        currency_data = body[0]
+        result_modified = {
+            "currency_code" : currency_data["currencyCode"],
+            "currency_name" : currency_data["currencyName"],
+            "buy_rate" : currency_data["buyRate"],
+            "sell_rate" : currency_data["sell_rate"]
+        }
+        return BoACurrencyRateResponse(**result_modified)
     except BoAServiceError as e:
-        logger.error(f"Service error getting currency rate: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
