@@ -216,6 +216,7 @@ async def initiate_other_bank_transfer(
         print(result)
 
         header = result.get("header", {})
+        body = result.get("body", result)
         boa_status_code = int(header.get("code", result.get("http_status", 500)))
 
         if boa_status_code != 200:
@@ -234,7 +235,7 @@ async def initiate_other_bank_transfer(
                     "unique_identifier": header.get("uniqueIdentifier"),
                     "transaction_status": header.get("transactionStatus"),
                     "message": error_message,
-                    "response": result
+                   
                 }
             )
 
@@ -243,7 +244,7 @@ async def initiate_other_bank_transfer(
             "boa_reference": header.get("id"),
             "unique_identifier": header.get("uniqueIdentifier"),
             "transaction_status": header.get("transactionStatus"),
-            "response": result
+            "response": body
         }
 
         return BoATransferResponse(**mapped_response)
