@@ -369,6 +369,21 @@ async def check_transaction_status(
         result = await boa_api.check_transaction_status(transaction_id)
         # result = await BoAStatusService.check_transaction_status(transaction_id, db)
         print(result)
+        header = result.get("header", {})
+        body = result.get("body", {})
+        status_code = result.get("http_status", 200)
+        if(status_code != 200):
+            try:
+                error_message = result.get("error",{}).get("message", "Try again later")
+            except:
+                error_message = "Try again later"
+            return JSONResponse(
+                status_code = status_code,
+                content = {
+                    "success" : False,
+                    "message" : error_message
+                }
+            )
         if not result:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
