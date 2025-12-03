@@ -40,31 +40,12 @@ async def get_beneficiary_name_boa(
     account_id: str,
     db: Session = Depends(get_db)
 ):
-    """
-    Fetch beneficiary name for Bank of Abyssinia account.
-
-    This endpoint queries the Bank of Abyssinia API to retrieve the account holder's name
-    for the specified account number. Results are cached for 24 hours.
-
-    **Parameters:**
-    - `account_id`: The BOA account number to query
-
-    **Returns:**
-    - `customer_name`: Account holder's full name
-    - `account_currency`: Account currency (e.g., "ETB")
-    - `cached`: Boolean indicating if result came from cache
-
-    **Postman Collection Reference:**
-    - Folder: "with-in-boa"
-    - Request: "accountQuery"
-    - URL: `{{base_url}}/getAccount/${accountId}`
-    - Headers: `x-api-key`, `Authorization`
-    """
     try:
         # change the implementation to boa_api service direct call
         result =await boa_api.fetch_beneficiary_name(account_id)
         result_body_list = result.get("body", [])
-
+        
+        print(result)
         if not result_body_list:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -425,8 +406,6 @@ async def get_balance(
     try:
         # change the implementation to boa_api service direct call
         result = await boa_api.get_balance()
-        # result = await BoARateService.get_balance(db)
-        print(result)
         header = result.get("header", {})
         body = result.get("body", [])
         status_code = result.get("http_status", 200)
@@ -470,6 +449,19 @@ async def get_bank_list(
         result = await boa_api.get_bank_list()
 
         boa_banks = result.get("body", [])
+        status_code = result.get("http_status", 200)
+        if (status_code != 200):
+            try:
+                error_message = result.get("error", {}).get("message", "Try again later")
+            except:
+                error_message = "Try again later"
+            return JSONResponse(
+                status_code=status_code,
+                content={
+                    "success" : False,
+                    "message" : error_message
+                }
+            )
         modified_list = [
             {
                 "bank_id": bank["id"],
@@ -493,19 +485,9 @@ async def get_bank_list(
 async def refresh_bank_list(
     db: Session = Depends(get_db)
 ):
-    """
-    Refresh the bank list from BoA API (admin function).
 
-    This endpoint fetches the latest bank list from Bank of Abyssinia and updates
-    the local database. Useful for ensuring the bank directory is current.
-
-    **Returns:**
-    - `message`: Success message
-    - `banks_count`: Number of banks updated
-    - `banks`: Array of all banks with their details
-    """
     try:
-        # change the implimentation to boa_api service direct call
+        # change the implementation to boa_api service direct call
         result = await boa_api.get_bank_list()
         # result = await BoABankService.get_bank_list(db)
         return {
@@ -522,19 +504,7 @@ async def refresh_bank_list(
 
 @router.get("/test-connection", summary="Test BOA Connection", description="Tests the connection to Bank of Abyssinia API by attempting authentication.")
 async def test_boa_connection():
-    """
-    Test connection to Bank of Abyssinia API.
 
-    This endpoint attempts to authenticate with the BOA API to verify connectivity.
-    Useful for checking if VPN connection and API credentials are working correctly.
-
-    **Returns:**
-    - `status`: "success" if connection works
-    - `message`: Descriptive message
-    - `base_url`: The configured BOA API base URL
-
-    **Note:** This endpoint only tests authentication, not actual API calls.
-    """
     try:
         # Import here to avoid circular imports
         # from app.utils.boa_api_service import boa_api
