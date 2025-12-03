@@ -194,41 +194,17 @@ async def initiate_within_boa_transfer(
             status_code=500,
             content={"detail": "Internal server error", "error": str(e)}
         )
-
-@router.post("/transfer/other-bank", response_model=BoATransferResponse, summary="Initiate Other Bank Transfer", description="Initiates a transfer to an account in another Ethiopian bank using EthSwitch.")
+@router.post(
+    "/transfer/other-bank",
+    response_model=BoATransferResponse,
+    summary="Initiate Other Bank Transfer",
+    description="Initiates a transfer to an account in another Ethiopian bank using EthSwitch."
+)
 async def initiate_other_bank_transfer(
     request: BoAOtherBankTransferRequest,
     db: Session = Depends(get_db)
 ):
-    """
-    Initiate transfer to other bank using EthSwitch.
-
-    This endpoint performs transfers to accounts in other Ethiopian banks through the
-    EthSwitch network. Requires the destination bank ID and account details.
-
-    **Request Body:**
-    - `transaction_id`: Internal transaction reference ID
-    - `amount`: Transfer amount as string
-    - `bank_code`: Destination bank ID (e.g., "231402" for Commercial Bank of Ethiopia)
-    - `account_number`: Recipient's account number at destination bank
-    - `reference`: Unique transaction reference
-    - `receiver_name`: Full name of the recipient
-
-    **Returns:**
-    - `success`: Boolean indicating if transfer was initiated successfully
-    - `boa_reference`: BOA's unique transaction reference
-    - `unique_identifier`: Unique transaction identifier
-    - `transaction_status`: Current status
-
-    **Postman Collection Reference:**
-    - Folder: "otherBank transfer"
-    - Request: "otherBank EthSwitch"
-    - URL: `{{base_url}}/otherBank/transferEthswitch`
-    - Headers: `x-api-key`, `Authorization`
-    - Body: `{"client_id": "{{client_id}}", "amount": "{{amount}}", "bankCode": "{{bank_id}}", "receiverName": "{{other_bank_receiverName}}", "accountNumber": "{{other_bank_account_number}}", "reference": "{{otherbank_transfer_reference}}"}`
-    """
     try:
-        # change the implimentation to boa_api service direct call
         result = await boa_api.initiate_other_bank_transfer(
             amount=request.amount,
             bank_code=request.bank_code,
@@ -236,22 +212,47 @@ async def initiate_other_bank_transfer(
             reference=request.reference,
             receiver_name=request.receiver_name
         )
+
         print(result)
-        # result = await BoATransferService.initiate_other_bank_transfer(
-        #     transaction_id=request.transaction_id,
-        #     amount=request.amount,
-        #     bank_code=request.bank_code,
-        #     account_number=request.account_number,
-        #     reference=request.reference,
-        #     receiver_name=request.receiver_name,
-        #     db=db
-        # )
-        return BoATransferResponse(**result)
-    except BoAServiceError as e:
-        logger.error(f"Service error initiating other bank transfer: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
+
+        header = result.get("header", {})
+        boa_status_code = int(header.get("code", result.get("http_status", 500)))
+
+        if boa_status_code != 200:
+            error_data = result.get("error", {}).get("errorDetails", [])
+            error_message = (
+                "Transaction Failed"
+                if not error_data
+                else error_data[0].get("message", "Transaction Failed")
+            )
+
+            return JSONResponse(
+                status_code=boa_status_code,
+                content={
+                    "success": False,
+                    "boa_reference": header.get("id"),
+                    "unique_identifier": header.get("uniqueIdentifier"),
+                    "transaction_status": header.get("transactionStatus"),
+                    "message": error_message,
+                    "response": result
+                }
+            )
+
+        mapped_response = {
+            "success": header.get("status") == "success",
+            "boa_reference": header.get("id"),
+            "unique_identifier": header.get("uniqueIdentifier"),
+            "transaction_status": header.get("transactionStatus"),
+            "response": result
+        }
+
+        return BoATransferResponse(**mapped_response)
+
+    except Exception as e:
+        logger.error(f"Unexpected error during BOA other bank transfer: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error", "error": str(e)}
         )
 
 @router.post("/transfer/money-send", response_model=BoATransferResponse, summary="Initiate Money Send", description="Initiates a money send transaction (wallet transfer) through BOA.")
