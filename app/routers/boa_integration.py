@@ -164,6 +164,8 @@ async def initiate_within_boa_transfer(
         # If like 401, 404, 100, 500, return EXACT status
         print(result)
         if boa_status_code != 200:
+            error_data = result.get("error", {}).get("errorDetails", [])
+            error_message = "Transaction Failed" if error_data == [] else error_data[0].get("message", "Transaction Failed")
             return JSONResponse(
                 status_code=boa_status_code,
                 content={
@@ -171,7 +173,7 @@ async def initiate_within_boa_transfer(
                     "boa_reference": header.get("id"),
                     "unique_identifier": header.get("uniqueIdentifier"),
                     "transaction_status": header.get("transactionStatus"),
-                    "message": header.get("message",result.get("error", {}).get("errorDetails", {}).get("message","Transaction Failed")),
+                    "message": error_message
                 }
             )
 
