@@ -381,27 +381,6 @@ async def get_currency_rate(
     base_currency: str,
     db: Session = Depends(get_db)
 ):
-    """
-    Get currency exchange rate from BoA.
-
-    This endpoint fetches up-to-date currency exchange rates for remittance calculations.
-    Rates are cached in the database for performance.
-
-    **Parameters:**
-    - `base_currency`: Base currency code (e.g., "USD", "EUR", "GBP")
-
-    **Returns:**
-    - `currency_code`: Currency code
-    - `currency_name`: Full currency name
-    - `buy_rate`: Rate at which BOA buys the currency
-    - `sell_rate`: Rate at which BOA sells the currency
-
-    **Postman Collection Reference:**
-    - Request: "exchangeRate"
-    - URL: `{{base_url}}/rate/${baseCurrency}`
-    - Headers: `x-api-key`, `Authorization`
-    - Example: `{{base_url}}/rate/USD`
-    """
     try:
         # change the implementation to boa_api service direct call
         result = await boa_api.get_currency_rate(base_currency.upper())
@@ -426,10 +405,10 @@ async def get_currency_rate(
             )
         currency_data = body[0]
         result_modified = {
-            "currency_code" : currency_data["currencyCode"],
-            "currency_name" : currency_data["currencyName"],
-            "buy_rate" : currency_data["buyRate"],
-            "sell_rate" : currency_data["sell_rate"]
+            "currency_code" : currency_data.get("currencyCode", "Unknown"),
+            "currency_name" : currency_data("currencyName", "Unknown"),
+            "buy_rate" : currency_data.get("buyRate", 0.00),
+            "sell_rate" : currency_data.get("sellRate", 0.00)
         }
         return BoACurrencyRateResponse(**result_modified)
     except BoAServiceError as e:
