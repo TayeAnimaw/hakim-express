@@ -384,7 +384,7 @@ async def get_currency_rate(
     try:
         # change the implementation to boa_api service direct call
         result = await boa_api.get_currency_rate(base_currency.upper())
-        body = result.get("body",{})
+        body = result.get("body",[])
         status_code = result.get("http_status", 200)
         if(status_code != 200):
             try:
@@ -406,7 +406,7 @@ async def get_currency_rate(
         currency_data = body[0]
         result_modified = {
             "currency_code" : currency_data.get("currencyCode", "Unknown"),
-            "currency_name" : currency_data("currencyName", "Unknown"),
+            "currency_name" : currency_data.get("currencyName", "Unknown"),
             "buy_rate" : currency_data.get("buyRate", 0.00),
             "sell_rate" : currency_data.get("sellRate", 0.00)
         }
@@ -421,36 +421,41 @@ async def get_currency_rate(
 async def get_balance(
     db: Session = Depends(get_db)
 ):
-    """
-    Get BoA account balance.
 
-    This endpoint returns the available balance on the settlement account that is debited
-    for every transfer request. Essential for checking available funds before transactions.
-
-    **Returns:**
-    - `account_currency`: Account currency (typically "ETB")
-    - `balance`: Current available balance
-
-    **Postman Collection Reference:**
-    - Request: "getBalance"
-    - URL: `{{base_url}}/getBalance`
-    - Method: POST
-    - Headers: `x-api-key`, `Authorization`
-    - Body: `{"client_id": "{{client_id}}"}`
-    """
     try:
-        # change the implimentation to boa_api service direct call
+        # change the implementation to boa_api service direct call
         result = await boa_api.get_balance()
         # result = await BoARateService.get_balance(db)
         print(result)
-        if not result:
+        header = result.get("header", {})
+        body = result.get("body", [])
+        status_code = result.get("http_status", 200)
+        if (status_code != 200):
+            try:
+                error_message = result.get("error", {}).get("message", "Try again later")
+            except:
+                error_message = "Try again later"
+            return JSONResponse(
+                status_code=status_code,
+                content={
+                    "success" : False,
+                    "message" : error_message
+                }
+            )
+        
+        if not result or not body:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Balance not found or API error"
             )
-        return BoABalanceResponse(**result)
+        balance_data = body[0]
+        result_modified = {
+            "account_currency" : balance_data.get("accountCurrency", "ETB"),
+            "balance" : balance_data.get("workingBalance", 0.00)
+        }
+        return BoABalanceResponse(**result_modified)
     except BoAServiceError as e:
-        logger.error(f"Service error getting balance: {str(e)}")
+        # logger.error(f"Service error getting balance: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
@@ -460,22 +465,7 @@ async def get_balance(
 async def get_bank_list(
     db: Session = Depends(get_db)
 ):
-    """
-    Get list of available banks for other bank transfers.
-
-    This endpoint provides all Ethiopian banks that can receive transfers through EthSwitch.
-    The list includes bank codes and names required for other bank transfer requests.
-
-    **Returns:**
-    - Array of banks with `bank_id` and `institution_name`
-    - Example: `[{"bank_id": "231402", "institution_name": "Commercial Bank of Ethiopia"}]`
-
-    **Postman Collection Reference:**
-    - Folder: "otherBank transfer"
-    - Request: "bankId"
-    - URL: `{{base_url}}/otherBank/bankId`
-    - Headers: `x-api-key`, `Authorization`
-    """
+    
     try:
         result = await boa_api.get_bank_list()
 
