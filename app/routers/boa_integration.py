@@ -44,8 +44,19 @@ async def get_beneficiary_name_boa(
         # change the implementation to boa_api service direct call
         result =await boa_api.fetch_beneficiary_name(account_id)
         result_body_list = result.get("body", [])
-        
-        print(result)
+        status_code = result.get("http_status", 200)
+        if(status_code != 200):
+            try: 
+                error_message = result.get("error",{}).get("message", "Try again later")
+            except:
+                error_message = "Try again later"
+            return JSONResponse(
+                status_code=status_code,
+                content={
+                    "success": False,
+                    "message" : error_message
+                }
+            )
         if not result_body_list:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -99,7 +110,7 @@ async def get_beneficiary_name_other_bank(
     - Headers: `x-api-key`, `Authorization`
     """
     try:
-        # change the implimentation to boa_api service direct call
+        # change the implementation to boa_api service direct call
         result = await boa_api.fetch_beneficiary_name_other_bank(bank_id, account_id)
         print("==========================")
         print(result)
@@ -140,13 +151,17 @@ async def initiate_within_boa_transfer(
         body = result.get("body", {})
 
         # BoA Code (not HTTP!)
-        boa_status_code = int(header.get("code", result.get("http_status", 500)))
+        boa_status_code = result.get("http_status", 200)
 
         # If like 401, 404, 100, 500, return EXACT status
         print(result)
         if boa_status_code != 200:
-            error_data = result.get("error", {}).get("errorDetails", [])
-            error_message = "Transaction Failed" if error_data == [] else error_data[0].get("message", "Transaction Failed")
+            try:
+                error_data = result.get("error", {}).get("errorDetails", [])
+                error_message = "Transaction Failed" if error_data == [] else error_data[0].get("message", "Transaction Failed")
+            except:
+                error_message = "Transaction Failed"
+            
             return JSONResponse(
                 status_code=boa_status_code,
                 content={
@@ -194,19 +209,19 @@ async def initiate_other_bank_transfer(
             receiver_name=request.receiver_name
         )
 
-        print(result)
-
         header = result.get("header", {})
         body = result.get("body", result)
-        boa_status_code = int(header.get("code", result.get("http_status", 500)))
-
+        boa_status_code = result.get("http_status", 200)
         if boa_status_code != 200:
-            error_data = result.get("error", {}).get("errorDetails", [])
-            error_message = (
-                "Transaction Failed"
-                if not error_data
-                else error_data[0].get("message", "Transaction Failed")
-            )
+            try:
+                error_data = result.get("error", {}).get("errorDetails", [])
+                error_message = (
+                    "Transaction Failed"
+                    if not error_data
+                    else error_data[0].get("message", "Transaction Failed")
+                )
+            except:
+                error_message = "Transaction Failed"
 
             return JSONResponse(
                 status_code=boa_status_code,
@@ -281,23 +296,33 @@ async def initiate_money_send(
             secret_code=request.secret_code
         )
         print(result)
-
-        if not result:
+        header = result.get("header", {})
+        body = result.get("body", [])
+        status_code = result.get("http_status", 200)
+        if (status_code != 200):
+            try:
+                error_data = result.get("error", {}).get("errorDetails", [])
+                error_message = (
+                    "Transaction Failed"
+                    if not error_data
+                    else error_data[0].get("message", "Transaction Failed")
+                )
+            except:
+                error_message = "Transaction Failed"
+            return JSONResponse(
+                status_code = status_code,
+                content = {
+                    "success" : False,
+                    "message" : error_message
+                }
+            )
+        if not result or not body:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Empty response from BoA API"
             )
 
-        header = result.get("header", {})
-        if header.get("status") != "success":
-            error_msg = "Money send failed"
-            if "error" in result:
-                error_msg = result["error"].get("errorDetails", [{}])[0].get("message", error_msg)
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=error_msg
-            )
-
+        
         return BoATransferResponse(
             success=True,
             boa_reference=header.get("id"),
