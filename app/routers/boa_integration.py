@@ -149,7 +149,7 @@ async def get_beneficiary_name_other_bank(
             "enquiry_status": boa_data.get("enquiryStatus", ""),   # BoA does not return this field
             "cached": False
         }
-        return BoABeneficiaryResponse(**result)
+        return BoABeneficiaryResponse(**mapped_data)
     except BoAServiceError as e:
         logger.error(f"Service error fetching other bank beneficiary: {str(e)}")
         raise HTTPException(
