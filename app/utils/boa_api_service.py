@@ -31,14 +31,18 @@ class BankOfAbyssiniaAPI:
     """
 
     def __init__(self):
-        self.base_url = settings.BOA_BASE_URL  # Already includes remitter name
+        self.base_url = settings.BOA_BASE_URL
         self.client_id = settings.BOA_CLIENT_ID
         self.client_secret = settings.BOA_CLIENT_SECRET
         self.api_key = settings.BOA_X_API_KEY
-        self.refresh_token = settings.BOA_REFRESH_TOKEN
-        self.auth_prefix = settings.BOA_AUTH_PREFIX
         self.token_file = settings.BOA_TOKEN_FILE
-
+        self.auth_prefix = settings.BOA_AUTH_PREFIX
+        token_data = self._load_token_file()
+        if token_data and "refresh_token" in token_data:
+            self.refresh_token = token_data["refresh_token"]
+        else:
+            self.refresh_token = settings.BOA_REFRESH_TOKEN
+        
         # Token management
         self._access_token = None
         self._token_expires_at = None
@@ -48,11 +52,19 @@ class BankOfAbyssiniaAPI:
         self.client = httpx.AsyncClient(
             base_url=self.base_url,
             timeout=30.0,
-            limits=httpx.Limits(max_keepalive_connections=20, max_connections=100)
+            limits=httpx.Limits(max_keepalive_connections=20, max_connections=100),
+            event_hooks={
+                "request": [self._log_request_url]
+            }
         )
-
+    def update_refresh_token(self, new_refresh_token: str) -> None:
+        """update the refresh token in memory"""
+        self.refresh_token = new_refresh_token
+        
     async def __aenter__(self):
         return self
+    async def _log_request_url(self, request: httpx.Request):
+        logger.debug(f"BOA request url: {request.url}")
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.client.aclose()
@@ -86,14 +98,12 @@ class BankOfAbyssiniaAPI:
 
     async def _ensure_authenticated(self) -> str:
         """Ensure we have a valid access token"""
-        # Check in-memory cache first
-        print("========")
+
         if self._token_cache and self._is_token_valid(self._token_cache):
             return self._token_cache["access_token"]
 
         # Check file cache
         disk_token = self._load_token_file()
-        print(disk_token)
         if disk_token and self._is_token_valid(disk_token):
             self._token_cache.update(disk_token)
             return disk_token["access_token"]
@@ -108,7 +118,6 @@ class BankOfAbyssiniaAPI:
             raise BoAAuthenticationError("Missing required BoA API credentials")
 
         token_url = f"{self.base_url}/oauth2/token"
-
         payload = {
             "client_id": self.client_id,
             "client_secret": self.client_secret,
@@ -125,7 +134,7 @@ class BankOfAbyssiniaAPI:
                     headers={"Content-Type": "application/json"}
                 )
                 response.raise_for_status()
-
+                
                 token_data = response.json()
 
                 access_token = token_data.get("access_token")
@@ -141,6 +150,7 @@ class BankOfAbyssiniaAPI:
 
                 # Cache in memory and save to file
                 self._token_cache.update(token_info)
+                self.update_refresh_token(refresh_token)
                 self._save_token_file(token_info)
 
                 logger.info("Successfully authenticated with Bank of Abyssinia API")
@@ -184,37 +194,24 @@ class BankOfAbyssiniaAPI:
                 params=params,
                 headers=headers
             )
-            print(response.json)
-            response.raise_for_status()
 
-            return response.json()
+            # DO NOT raise_for_status → BoA returns JSON even on 400/404/401
+            result = response.json()
+            result["http_status"] = response.status_code  # keep original status
+            return result
 
-        except httpx.HTTPStatusError as e:
-            error_text = e.response.text
-            logger.error(f"BoA API request failed: {e.response.status_code} - {error_text}")
+        except httpx.RequestError as e:
+            logger.error(f"BoA network error: {str(e)}")
+            return {
+                "header": {
+                    "status": "failed",
+                    "code": 500,
+                    "message": "Network error contacting BOA"
+                },
+                "body": None,
+                "http_status": 500
+            }
 
-            if e.response.status_code == 401:
-                # Token might be expired, reset and retry once
-                self._access_token = None
-                if include_auth:
-                    try:
-                        return await self._make_request(method, endpoint, data, params, include_auth)
-                    except Exception:
-                        raise BoAAuthenticationError(f"Authentication failed after retry: {error_text}")
-                else:
-                    raise BoAAuthenticationError(f"Authentication failed: {error_text}")
-
-            elif e.response.status_code == 429:
-                raise BoARateLimitError(f"Rate limit exceeded: {error_text}")
-            else:
-                raise BoAAPIError(f"API request failed: {error_text}")
-
-        except httpx.TimeoutException:
-            logger.error("BoA API request timed out")
-            raise BoAAPIError("Request timeout - please try again")
-        except Exception as e:
-            logger.error(f"Unexpected error in BoA API request: {str(e)}")
-            raise BoAAPIError(f"Request error: {str(e)}")
 
     # API Methods based on documentation
 
@@ -224,12 +221,12 @@ class BankOfAbyssiniaAPI:
 
     async def fetch_beneficiary_name(self, account_id: str) -> Dict[str, Any]:
         """Fetch beneficiary name for BoA account"""
-        endpoint = f"/getAccount/{account_id}"
+        endpoint = f"getAccount/{account_id}"
         return await self._make_request("GET", endpoint)
 
     async def fetch_beneficiary_name_other_bank(self, bank_id: str, account_id: str) -> Dict[str, Any]:
         """Fetch beneficiary name for other bank account"""
-        endpoint = f"/otherBank/getAccount/{bank_id}/{account_id}"
+        endpoint = f"otherBank/getAccount/{bank_id}/{account_id}"
         return await self._make_request("GET", endpoint)
 
     async def initiate_within_boa_transfer(
@@ -239,7 +236,7 @@ class BankOfAbyssiniaAPI:
         reference: str
     ) -> Dict[str, Any]:
         """Initiate transfer within Bank of Abyssinia"""
-        endpoint = "/transferWithin"
+        endpoint = "transferWithin"
         data = {
             "client_id": self.client_id,
             "amount": amount,
@@ -250,7 +247,7 @@ class BankOfAbyssiniaAPI:
 
     async def get_bank_list(self) -> Dict[str, Any]:
         """Get list of available banks for other bank transfers"""
-        endpoint = "/otherBank/bankId"
+        endpoint = "otherBank/bankId"
         return await self._make_request("GET", endpoint)
 
     async def initiate_other_bank_transfer(
@@ -262,7 +259,7 @@ class BankOfAbyssiniaAPI:
         receiver_name: str
     ) -> Dict[str, Any]:
         """Initiate transfer to other bank using EthSwitch"""
-        endpoint = "/otherBank/transferEthswitch"
+        endpoint = "otherBank/transferEthswitch"
         data = {
             "client_id": self.client_id,
             "amount": amount,
@@ -275,17 +272,17 @@ class BankOfAbyssiniaAPI:
 
     async def check_transaction_status(self, transaction_id: str) -> Dict[str, Any]:
         """Check status of a transaction"""
-        endpoint = f"/transactionStatus/{transaction_id}"
+        endpoint = f"transactionStatus/{transaction_id}"
         return await self._make_request("GET", endpoint)
 
     async def get_currency_rate(self, base_currency: str) -> Dict[str, Any]:
         """Get currency exchange rate"""
-        endpoint = f"/rate/{base_currency}"
+        endpoint = f"rate/{base_currency}"
         return await self._make_request("GET", endpoint)
 
     async def get_balance(self) -> Dict[str, Any]:
         """Get remitter account balance"""
-        endpoint = "/getBalance"
+        endpoint = "getBalance"
         data = {
             "client_id": self.client_id
         }
@@ -303,7 +300,7 @@ class BankOfAbyssiniaAPI:
         secret_code: str
     ) -> Dict[str, Any]:
         """Initiate money send (wallet transfer)"""
-        endpoint = "/moneySend"
+        endpoint = "moneySend"
         data = {
             "client_id": self.client_id,
             "amount": amount,
@@ -319,5 +316,3 @@ class BankOfAbyssiniaAPI:
 
 # Global instance for dependency injection
 boa_api = BankOfAbyssiniaAPI()
-
-print(boa_api.api_key)

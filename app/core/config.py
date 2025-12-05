@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
-        "postgresql://hakim_express_user:mXJK81GKUkBxMb3UBNUpp1CMLkixtutd@dpg-d40pj6k9c44c73c9qb20-a.oregon-postgres.render.com/hakim_express_10js"
+        "postgresql://hakim_express_user:i3RUSUmRAqcgosUyQI3DanOuiXEXJxGv@dpg-d4lut58gjchc73aulttg-a.oregon-postgres.render.com:5432/hakim_express_v62w?sslmode=require"
     )
 
     # Security

@@ -1,6 +1,8 @@
 # app/routers/boa_integration.py
 
+import json
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 import logging
@@ -38,35 +40,40 @@ async def get_beneficiary_name_boa(
     account_id: str,
     db: Session = Depends(get_db)
 ):
-    """
-    Fetch beneficiary name for Bank of Abyssinia account.
-
-    This endpoint queries the Bank of Abyssinia API to retrieve the account holder's name
-    for the specified account number. Results are cached for 24 hours.
-
-    **Parameters:**
-    - `account_id`: The BOA account number to query
-
-    **Returns:**
-    - `customer_name`: Account holder's full name
-    - `account_currency`: Account currency (e.g., "ETB")
-    - `cached`: Boolean indicating if result came from cache
-
-    **Postman Collection Reference:**
-    - Folder: "with-in-boa"
-    - Request: "accountQuery"
-    - URL: `{{base_url}}/getAccount/${accountId}`
-    - Headers: `x-api-key`, `Authorization`
-    """
     try:
-        # change the implimentation to boa_api service direct call
+        # change the implementation to boa_api service direct call
         result =await boa_api.fetch_beneficiary_name(account_id)
-        if not result:
+        result_body_list = result.get("body", [])
+        status_code = result.get("http_status", 200)
+        if(status_code != 200):
+            try: 
+                error_message = result.get("error",{}).get("message", "Try again later")
+            except:
+                error_message = "Try again later"
+            return JSONResponse(
+                status_code=status_code,
+                content={
+                    "success": False,
+                    "message" : error_message
+                }
+            )
+        if not result_body_list:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Beneficiary not found or API error"
             )
-        return BoABeneficiaryResponse(**result)
+
+        # BoA returns a list with one object, so take the first item
+        boa_data = result_body_list[0]
+
+        mapped_data = {
+            "customer_name": boa_data.get("customerName"),
+            "account_currency": boa_data.get("accountCurrency"),
+            "enquiry_status": None,   # BoA does not return this field
+            "cached": False
+        }
+
+        return BoABeneficiaryResponse(**mapped_data)
     except BoAServiceError as e:
         logger.error(f"Service error fetching BoA beneficiary: {str(e)}")
         raise HTTPException(
@@ -103,14 +110,46 @@ async def get_beneficiary_name_other_bank(
     - Headers: `x-api-key`, `Authorization`
     """
     try:
-        # change the implimentation to boa_api service direct call
+        # change the implementation to boa_api service direct call
         result = await boa_api.fetch_beneficiary_name_other_bank(bank_id, account_id)
-        if not result:
+        header = result.get("header", {})
+        body = result.get("body", [])
+        status_code = result.get("http_status", 200)
+        if (status_code != 200):
+            try: 
+                error_message = result.get("error",{}).get("message", "Try again later")
+            except:
+                error_message = "Try again later"
+            return JSONResponse(
+                status_code=status_code,
+                content={
+                    "success": False,
+                    "message" : error_message
+                }
+            )
+        if not body:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Beneficiary not found or API error"
+                detail="Beneficiary not found"
             )
-        return BoABeneficiaryResponse(**result)
+        boa_data = body[0]
+        error_code = boa_data.get("errorCode", "ok")
+        if(error_code.lower() != "ok"):
+            error_desc = boa_data.get("errDesc", "Unknown error")
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "success" : False,
+                    "message": error_desc
+                }
+            )
+        mapped_data = {
+            "customer_name": boa_data.get("beneficiaryName", "Unknown"),
+            "account_currency": boa_data.get("accountCurrency", "ETB"),
+            "enquiry_status": boa_data.get("enquiryStatus", ""),   # BoA does not return this field
+            "cached": False
+        }
+        return BoABeneficiaryResponse(**mapped_data)
     except BoAServiceError as e:
         logger.error(f"Service error fetching other bank beneficiary: {str(e)}")
         raise HTTPException(
@@ -120,92 +159,75 @@ async def get_beneficiary_name_other_bank(
 
 # Transfer Endpoints
 
-@router.post("/transfer/within-boa", response_model=BoATransferResponse, summary="Initiate Within-BOA Transfer", description="Initiates a real-time transfer between accounts within Bank of Abyssinia.")
+@router.post(
+    "/transfer/within-boa",
+    response_model=BoATransferResponse,
+    summary="Initiate Within-BOA Transfer",
+    description="Initiates a real-time transfer between accounts within Bank of Abyssinia."
+)
 async def initiate_within_boa_transfer(
     request: BoATransferRequest,
     db: Session = Depends(get_db)
 ):
-    """
-    Initiate transfer within Bank of Abyssinia.
-
-    This endpoint performs real-time transfers between accounts held at Bank of Abyssinia.
-    The transfer is processed immediately and returns transaction details.
-
-    **Request Body:**
-    - `transaction_id`: Internal transaction reference ID
-    - `amount`: Transfer amount as string
-    - `account_number`: Recipient's BOA account number
-    - `reference`: Unique transaction reference
-
-    **Returns:**
-    - `success`: Boolean indicating if transfer was initiated successfully
-    - `boa_reference`: BOA's unique transaction reference (e.g., "FT23343L0Z8C")
-    - `unique_identifier`: Unique transaction identifier
-    - `transaction_status`: Current status ("Live", "success", "failed")
-
-    **Postman Collection Reference:**
-    - Folder: "with-in-boa"
-    - Request: "transfer"
-    - URL: `{{base_url}}/transferWithin`
-    - Headers: `x-api-key`, `Authorization`
-    - Body: `{"client_id": "{{client_id}}", "amount": "100", "accountNumber": "7260865", "reference": "stringETSW"}`
-    """
     try:
-        # change the implimentation to boa_api service direct call
         result = await boa_api.initiate_within_boa_transfer(
             amount=request.amount,
             account_number=request.account_number,
             reference=request.reference
         )
-        # result = await BoATransferService.initiate_within_boa_transfer(
-        #     transaction_id=request.transaction_id,
-        #     amount=request.amount,
-        #     account_number=request.account_number,
-        #     reference=request.reference,
-        #     db=db
-        # )
-        return BoATransferResponse(**result)
-    except BoAServiceError as e:
-        logger.error(f"Service error initiating BoA transfer: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
 
-@router.post("/transfer/other-bank", response_model=BoATransferResponse, summary="Initiate Other Bank Transfer", description="Initiates a transfer to an account in another Ethiopian bank using EthSwitch.")
+        header = result.get("header", {})
+        body = result.get("body", {})
+
+        # BoA Code (not HTTP!)
+        boa_status_code = result.get("http_status", 200)
+
+        if boa_status_code != 200:
+            try:
+                error_data = result.get("error", {}).get("errorDetails", [])
+                error_message = "Transaction Failed" if error_data == [] else error_data[0].get("message", "Transaction Failed")
+            except:
+                error_message = "Transaction Failed"
+            
+            return JSONResponse(
+                status_code=boa_status_code,
+                content={
+                    "success": False,
+                    "boa_reference": header.get("id"),
+                    "unique_identifier": header.get("uniqueIdentifier"),
+                    "transaction_status": header.get("transactionStatus"),
+                    "message": error_message
+                }
+            )
+
+        # SUCCESS mapping
+        mapped_response = {
+            "success": header.get("status") == "success",
+            "boa_reference": header.get("id"),
+            "unique_identifier": header.get("uniqueIdentifier"),
+            "transaction_status": header.get("transactionStatus"),
+            "response": body
+        }
+
+        return BoATransferResponse(**mapped_response)
+
+    except Exception as e:
+        logger.error(f"Unexpected error during BOA transfer: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error", "error": str(e)}
+        )
+@router.post(
+    "/transfer/other-bank",
+    response_model=BoATransferResponse,
+    summary="Initiate Other Bank Transfer",
+    description="Initiates a transfer to an account in another Ethiopian bank using EthSwitch."
+)
 async def initiate_other_bank_transfer(
     request: BoAOtherBankTransferRequest,
     db: Session = Depends(get_db)
 ):
-    """
-    Initiate transfer to other bank using EthSwitch.
-
-    This endpoint performs transfers to accounts in other Ethiopian banks through the
-    EthSwitch network. Requires the destination bank ID and account details.
-
-    **Request Body:**
-    - `transaction_id`: Internal transaction reference ID
-    - `amount`: Transfer amount as string
-    - `bank_code`: Destination bank ID (e.g., "231402" for Commercial Bank of Ethiopia)
-    - `account_number`: Recipient's account number at destination bank
-    - `reference`: Unique transaction reference
-    - `receiver_name`: Full name of the recipient
-
-    **Returns:**
-    - `success`: Boolean indicating if transfer was initiated successfully
-    - `boa_reference`: BOA's unique transaction reference
-    - `unique_identifier`: Unique transaction identifier
-    - `transaction_status`: Current status
-
-    **Postman Collection Reference:**
-    - Folder: "otherBank transfer"
-    - Request: "otherBank EthSwitch"
-    - URL: `{{base_url}}/otherBank/transferEthswitch`
-    - Headers: `x-api-key`, `Authorization`
-    - Body: `{"client_id": "{{client_id}}", "amount": "{{amount}}", "bankCode": "{{bank_id}}", "receiverName": "{{other_bank_receiverName}}", "accountNumber": "{{other_bank_account_number}}", "reference": "{{otherbank_transfer_reference}}"}`
-    """
     try:
-        # change the implimentation to boa_api service direct call
         result = await boa_api.initiate_other_bank_transfer(
             amount=request.amount,
             bank_code=request.bank_code,
@@ -213,21 +235,48 @@ async def initiate_other_bank_transfer(
             reference=request.reference,
             receiver_name=request.receiver_name
         )
-        # result = await BoATransferService.initiate_other_bank_transfer(
-        #     transaction_id=request.transaction_id,
-        #     amount=request.amount,
-        #     bank_code=request.bank_code,
-        #     account_number=request.account_number,
-        #     reference=request.reference,
-        #     receiver_name=request.receiver_name,
-        #     db=db
-        # )
-        return BoATransferResponse(**result)
-    except BoAServiceError as e:
-        logger.error(f"Service error initiating other bank transfer: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
+
+        header = result.get("header", {})
+        body = result.get("body", result)
+        boa_status_code = result.get("http_status", 200)
+        if boa_status_code != 200:
+            try:
+                error_data = result.get("error", {}).get("errorDetails", [])
+                error_message = (
+                    "Transaction Failed"
+                    if not error_data
+                    else error_data[0].get("message", "Transaction Failed")
+                )
+            except:
+                error_message = "Transaction Failed"
+
+            return JSONResponse(
+                status_code=boa_status_code,
+                content={
+                    "success": False,
+                    "boa_reference": header.get("id"),
+                    "unique_identifier": header.get("uniqueIdentifier"),
+                    "transaction_status": header.get("transactionStatus"),
+                    "message": error_message,
+                   
+                }
+            )
+
+        mapped_response = {
+            "success": header.get("status") == "success",
+            "boa_reference": header.get("id"),
+            "unique_identifier": header.get("uniqueIdentifier"),
+            "transaction_status": header.get("transactionStatus"),
+            "response": body
+        }
+
+        return BoATransferResponse(**mapped_response)
+
+    except Exception as e:
+        logger.error(f"Unexpected error during BOA other bank transfer: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error", "error": str(e)}
         )
 
 @router.post("/transfer/money-send", response_model=BoATransferResponse, summary="Initiate Money Send", description="Initiates a money send transaction (wallet transfer) through BOA.")
@@ -273,23 +322,33 @@ async def initiate_money_send(
             reference=request.reference,
             secret_code=request.secret_code
         )
-
-        if not result:
+        header = result.get("header", {})
+        body = result.get("body", [])
+        status_code = result.get("http_status", 200)
+        if (status_code != 200):
+            try:
+                error_data = result.get("error", {}).get("errorDetails", [])
+                error_message = (
+                    "Transaction Failed"
+                    if not error_data
+                    else error_data[0].get("message", "Transaction Failed")
+                )
+            except:
+                error_message = "Transaction Failed"
+            return JSONResponse(
+                status_code = status_code,
+                content = {
+                    "success" : False,
+                    "message" : error_message
+                }
+            )
+        if not result or not body:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Empty response from BoA API"
             )
 
-        header = result.get("header", {})
-        if header.get("status") != "success":
-            error_msg = "Money send failed"
-            if "error" in result:
-                error_msg = result["error"].get("errorDetails", [{}])[0].get("message", error_msg)
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=error_msg
-            )
-
+        
         return BoATransferResponse(
             success=True,
             boa_reference=header.get("id"),
@@ -327,14 +386,28 @@ async def check_transaction_status(
     - `status`: Current status ("SUCCESS", "FAILED", "PENDING", etc.)
 
     **Postman Collection Reference:**
-    - Request: "statuCheck"
+    - Request: "statusCheck"
     - URL: `{{base_url}}/transactionStatus/{transactionId}`
     - Headers: `x-api-key`, `Authorization`
     """
     try:
-        # change the implimentation to boa_api service direct call
+        # change the implementation to boa_api service direct call
         result = await boa_api.check_transaction_status(transaction_id)
-        # result = await BoAStatusService.check_transaction_status(transaction_id, db)
+        header = result.get("header", {})
+        body = result.get("body", {})
+        status_code = result.get("http_status", 200)
+        if(status_code != 200):
+            try:
+                error_message = result.get("error",{}).get("message", "Try again later")
+            except:
+                error_message = "Try again later"
+            return JSONResponse(
+                status_code = status_code,
+                content = {
+                    "success" : False,
+                    "message" : error_message
+                }
+            )
         if not result:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -353,39 +426,37 @@ async def get_currency_rate(
     base_currency: str,
     db: Session = Depends(get_db)
 ):
-    """
-    Get currency exchange rate from BoA.
-
-    This endpoint fetches up-to-date currency exchange rates for remittance calculations.
-    Rates are cached in the database for performance.
-
-    **Parameters:**
-    - `base_currency`: Base currency code (e.g., "USD", "EUR", "GBP")
-
-    **Returns:**
-    - `currency_code`: Currency code
-    - `currency_name`: Full currency name
-    - `buy_rate`: Rate at which BOA buys the currency
-    - `sell_rate`: Rate at which BOA sells the currency
-
-    **Postman Collection Reference:**
-    - Request: "exchangeRate"
-    - URL: `{{base_url}}/rate/${baseCurrency}`
-    - Headers: `x-api-key`, `Authorization`
-    - Example: `{{base_url}}/rate/USD`
-    """
     try:
-        # change the implimentation to boa_api service direct call
+        # change the implementation to boa_api service direct call
         result = await boa_api.get_currency_rate(base_currency.upper())
-        # result = await BoARateService.get_currency_rate(base_currency.upper(), db)
-        if not result:
+        body = result.get("body",[])
+        status_code = result.get("http_status", 200)
+        if(status_code != 200):
+            try:
+                error_message = result.get("error",{}).get("message", "Try again later")
+            except:
+                error_message = "Try again later"
+            return JSONResponse(
+                status_code=status_code,
+                content={
+                    "success": False,
+                    "message": error_message,                  
+                }
+            )
+        if not result or not body:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Currency rate not found or API error"
             )
-        return BoACurrencyRateResponse(**result)
+        currency_data = body[0]
+        result_modified = {
+            "currency_code" : currency_data.get("currencyCode", "Unknown"),
+            "currency_name" : currency_data.get("currencyName", "Unknown"),
+            "buy_rate" : currency_data.get("buyRate", 0.00),
+            "sell_rate" : currency_data.get("sellRate", 0.00)
+        }
+        return BoACurrencyRateResponse(**result_modified)
     except BoAServiceError as e:
-        logger.error(f"Service error getting currency rate: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
@@ -395,35 +466,39 @@ async def get_currency_rate(
 async def get_balance(
     db: Session = Depends(get_db)
 ):
-    """
-    Get BoA account balance.
 
-    This endpoint returns the available balance on the settlement account that is debited
-    for every transfer request. Essential for checking available funds before transactions.
-
-    **Returns:**
-    - `account_currency`: Account currency (typically "ETB")
-    - `balance`: Current available balance
-
-    **Postman Collection Reference:**
-    - Request: "getBalance"
-    - URL: `{{base_url}}/getBalance`
-    - Method: POST
-    - Headers: `x-api-key`, `Authorization`
-    - Body: `{"client_id": "{{client_id}}"}`
-    """
     try:
-        # change the implimentation to boa_api service direct call
+        # change the implementation to boa_api service direct call
         result = await boa_api.get_balance()
-        # result = await BoARateService.get_balance(db)
-        if not result:
+        header = result.get("header", {})
+        body = result.get("body", [])
+        status_code = result.get("http_status", 200)
+        if (status_code != 200):
+            try:
+                error_message = result.get("error", {}).get("message", "Try again later")
+            except:
+                error_message = "Try again later"
+            return JSONResponse(
+                status_code=status_code,
+                content={
+                    "success" : False,
+                    "message" : error_message
+                }
+            )
+        
+        if not result or not body:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Balance not found or API error"
             )
-        return BoABalanceResponse(**result)
+        balance_data = body[0]
+        result_modified = {
+            "account_currency" : balance_data.get("accountCurrency", "ETB"),
+            "balance" : balance_data.get("workingBalance", 0.00)
+        }
+        return BoABalanceResponse(**result_modified)
     except BoAServiceError as e:
-        logger.error(f"Service error getting balance: {str(e)}")
+        # logger.error(f"Service error getting balance: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
@@ -433,27 +508,34 @@ async def get_balance(
 async def get_bank_list(
     db: Session = Depends(get_db)
 ):
-    """
-    Get list of available banks for other bank transfers.
-
-    This endpoint provides all Ethiopian banks that can receive transfers through EthSwitch.
-    The list includes bank codes and names required for other bank transfer requests.
-
-    **Returns:**
-    - Array of banks with `bank_id` and `institution_name`
-    - Example: `[{"bank_id": "231402", "institution_name": "Commercial Bank of Ethiopia"}]`
-
-    **Postman Collection Reference:**
-    - Folder: "otherBank transfer"
-    - Request: "bankId"
-    - URL: `{{base_url}}/otherBank/bankId`
-    - Headers: `x-api-key`, `Authorization`
-    """
+    
     try:
-        # change the implimentation to boa_api service direct call
         result = await boa_api.get_bank_list()
-        # result = await BoABankService.get_bank_list(db)
-        return [BoABankListResponse(**bank) for bank in result]
+
+        boa_banks = result.get("body", [])
+        status_code = result.get("http_status", 200)
+        if (status_code != 200):
+            try:
+                error_message = result.get("error", {}).get("message", "Try again later")
+            except:
+                error_message = "Try again later"
+            return JSONResponse(
+                status_code=status_code,
+                content={
+                    "success" : False,
+                    "message" : error_message
+                }
+            )
+        modified_list = [
+            {
+                "bank_id": bank["id"],
+                "institution_name": bank["institutionName"]
+            }
+            for bank in boa_banks
+        ]
+
+        # Return Pydantic validated list
+        return [BoABankListResponse(**bank) for bank in modified_list]
     except BoAServiceError as e:
         logger.error(f"Service error getting bank list: {str(e)}")
         raise HTTPException(
@@ -467,19 +549,9 @@ async def get_bank_list(
 async def refresh_bank_list(
     db: Session = Depends(get_db)
 ):
-    """
-    Refresh the bank list from BoA API (admin function).
 
-    This endpoint fetches the latest bank list from Bank of Abyssinia and updates
-    the local database. Useful for ensuring the bank directory is current.
-
-    **Returns:**
-    - `message`: Success message
-    - `banks_count`: Number of banks updated
-    - `banks`: Array of all banks with their details
-    """
     try:
-        # change the implimentation to boa_api service direct call
+        # change the implementation to boa_api service direct call
         result = await boa_api.get_bank_list()
         # result = await BoABankService.get_bank_list(db)
         return {
@@ -496,19 +568,7 @@ async def refresh_bank_list(
 
 @router.get("/test-connection", summary="Test BOA Connection", description="Tests the connection to Bank of Abyssinia API by attempting authentication.")
 async def test_boa_connection():
-    """
-    Test connection to Bank of Abyssinia API.
 
-    This endpoint attempts to authenticate with the BOA API to verify connectivity.
-    Useful for checking if VPN connection and API credentials are working correctly.
-
-    **Returns:**
-    - `status`: "success" if connection works
-    - `message`: Descriptive message
-    - `base_url`: The configured BOA API base URL
-
-    **Note:** This endpoint only tests authentication, not actual API calls.
-    """
     try:
         # Import here to avoid circular imports
         # from app.utils.boa_api_service import boa_api

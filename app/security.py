@@ -37,7 +37,6 @@ def create_access_token(data: dict, expires_delta: timedelta = timedelta(minutes
 def verify_access_token(token: str):
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        print(f"Decoded payload: {payload}")
         return payload  # Payload should have a 'sub' field which is the user_id
     except JWTError:
         raise HTTPException(
@@ -50,9 +49,7 @@ def create_refresh_token(data: dict, expires_delta: timedelta = timedelta(days=7
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 def get_current_user(db: Session = Depends(get_db), token: dict = Depends(verify_access_token)):
-    print(f"Decoded token: {token}")  # Print the decoded token to check the payload
     user_id = token.get("sub")
-    print(f"Extracted user_id from token: {user_id}")  # Print user_id
     if user_id is None:
         raise HTTPException(status_code=403, detail="Invalid token: no user_id")
     try:
@@ -60,10 +57,8 @@ def get_current_user(db: Session = Depends(get_db), token: dict = Depends(verify
     except ValueError:
         raise HTTPException(status_code=403, detail="Invalid token: user_id not integer")
     user = db.query(User).filter(User.user_id == user_id).first()
-    print(f"Fetched user: {user}")  # Print the fetched user
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    print(user.role,"==============")
     return user
 
 # Custom JWTBearer for security
@@ -87,10 +82,8 @@ def authenticate_user(db: Session, login_id: str, password: str):
     ).first()
 
     if not user:
-        print("User not found")
         return False
     if not verify_password(password, user.password):
-        print("Password verification failed")        
         return False
     return user
 def get_current_admin_user(current_user: User = Depends(get_current_user)) -> User:

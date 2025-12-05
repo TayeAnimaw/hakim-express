@@ -21,10 +21,7 @@ def create_payment_card(
 ):
     try:
         # Step 1: Create Stripe customer if needed
-        # to create demo payment method use test token uncomment below line 
-        # payment_card.stripe_payment_method_id = create_stripe_payment_method()
-        # print(current_user.stripe_customer_id)
-        print(payment_card.stripe_payment_method_id)
+
         if not current_user.stripe_customer_id:
             customer = stripe.Customer.create(email=current_user.email)
             current_user.stripe_customer_id = customer.id
@@ -81,7 +78,6 @@ def create_payment_card(
         
         return new_card
     except Exception as e:
-        print(e)
         raise HTTPException(status_code=500, detail="Internal_server_error")
 @router.get("/", response_model=List[PaymentCardResponse])
 def get_my_payment_cards(
@@ -92,8 +88,7 @@ def get_my_payment_cards(
         PaymentCard.user_id == current_user.user_id,
         PaymentCard.is_active == True
     ).all()
-    for card in cards:
-        print(card.payment_card_id, card.is_default)
+
     return cards
 
 
@@ -150,7 +145,6 @@ def set_default_card(
     card = db.query(PaymentCard).filter_by(payment_card_id=payment_card_id).first()
 
     if not card or card.user_id != current_user.user_id:
-        print(card.user_id, current_user.user_id)
         raise HTTPException(status_code=403, detail="Not authorized or card not found")
     # first we must make false to existing default card because only one card can be default
     # then we can set this card as default

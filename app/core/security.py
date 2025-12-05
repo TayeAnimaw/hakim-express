@@ -68,20 +68,14 @@ def create_stripe_payment_method(email: str = "dev@example.com") -> str:
     try:
         # Create a test customer
         customer = stripe.Customer.create(email=email, source="tok_visa")
-        print("Customer created:", customer.id)
-        print("Default source:", customer.default_source)
 
         # Create a PaymentMethod using test token
         pm = stripe.PaymentMethod.create(type="card", card={"token": "tok_visa"})
         pm_id = pm.id
-        print("Created PaymentMethod:", pm_id)
 
         # Attach PaymentMethod to the customer
         stripe.PaymentMethod.attach(pm_id, customer=customer.id)
-        print(f"PaymentMethod {pm_id} attached to customer {customer.id}")
-
         return pm_id
 
     except stripe.error.StripeError as e:
-        print("Stripe error:", e.user_message or e)
         return None

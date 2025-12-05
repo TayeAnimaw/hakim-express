@@ -43,7 +43,6 @@ def submit_kyc(
     current_user : User = Depends(get_current_user),
 ):
     try:
-        print(f"Current user: {current_user.user_id}, is_verified: {current_user.is_verified}")
         if not current_user.is_verified:
             raise HTTPException(status_code=403, detail="User must verify OTP before submitting KYC")
 
@@ -102,15 +101,10 @@ def get_my_kyc(
     if not kyc:
         raise HTTPException(status_code=404, detail="KYC document not found")
 
-    # Debug logging
-    print(f"Debug: kyc.user = {kyc.user}")
     if kyc.user:
-        print(f"Debug: user.email = {kyc.user.email}, user.phone = {kyc.user.phone}, user.email type = {type(kyc.user.email)}")
 
-        # Handle null email for existing users
         if kyc.user.email is None:
             kyc.user.email = ""
-    print(kyc)
     return kyc
 
 @router.put("/update", response_model=KYCDocumentOut)

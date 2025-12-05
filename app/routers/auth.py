@@ -355,8 +355,6 @@ async def create_user(
             updated_at=datetime.utcnow()
         )
 
-        print(f"Debug: Creating user with email={user_email}, phone={user_data.phone}")
-
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
@@ -370,7 +368,6 @@ async def create_user(
         return db_user
 
     except Exception as e:
-        print(e)
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
