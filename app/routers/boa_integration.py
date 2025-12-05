@@ -182,8 +182,6 @@ async def initiate_within_boa_transfer(
         # BoA Code (not HTTP!)
         boa_status_code = result.get("http_status", 200)
 
-        # If like 401, 404, 100, 500, return EXACT status
-        print(result)
         if boa_status_code != 200:
             try:
                 error_data = result.get("error", {}).get("errorDetails", [])
@@ -324,7 +322,6 @@ async def initiate_money_send(
             reference=request.reference,
             secret_code=request.secret_code
         )
-        print(result)
         header = result.get("header", {})
         body = result.get("body", [])
         status_code = result.get("http_status", 200)
@@ -389,15 +386,13 @@ async def check_transaction_status(
     - `status`: Current status ("SUCCESS", "FAILED", "PENDING", etc.)
 
     **Postman Collection Reference:**
-    - Request: "statuCheck"
+    - Request: "statusCheck"
     - URL: `{{base_url}}/transactionStatus/{transactionId}`
     - Headers: `x-api-key`, `Authorization`
     """
     try:
-        # change the implimentation to boa_api service direct call
+        # change the implementation to boa_api service direct call
         result = await boa_api.check_transaction_status(transaction_id)
-        # result = await BoAStatusService.check_transaction_status(transaction_id, db)
-        print(result)
         header = result.get("header", {})
         body = result.get("body", {})
         status_code = result.get("http_status", 200)

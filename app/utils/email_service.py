@@ -20,10 +20,8 @@ async def send_email_async(subject: str, recipient: str, body: str):
             password=settings.MAIL_PASSWORD,
             use_tls=(settings.MAIL_ENCRYPTION == "ssl")
         )
-        print("emial sent successfully")
         return {"message": "Email sent successfully"}
     except Exception as e:
-        print(f"================= {e} =============")
         return {"error": str(e)}
 
 

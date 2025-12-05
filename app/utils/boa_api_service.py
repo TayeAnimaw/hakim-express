@@ -38,7 +38,6 @@ class BankOfAbyssiniaAPI:
         self.token_file = settings.BOA_TOKEN_FILE
         self.auth_prefix = settings.BOA_AUTH_PREFIX
         token_data = self._load_token_file()
-        print("loaded token data:", token_data)
         if token_data and "refresh_token" in token_data:
             self.refresh_token = token_data["refresh_token"]
         else:
@@ -65,7 +64,7 @@ class BankOfAbyssiniaAPI:
     async def __aenter__(self):
         return self
     async def _log_request_url(self, request: httpx.Request):
-        print(f"➡️ Request URL: {request.url}")
+        logger.debug(f"BOA request url: {request.url}")
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.client.aclose()
@@ -73,7 +72,6 @@ class BankOfAbyssiniaAPI:
     def _load_token_file(self) -> Optional[Dict[str, Any]]:
         """Load token from file cache"""
         try:
-            print("Token file path:", self.token_file)
             if os.path.exists(self.token_file):
                 with open(self.token_file, "r") as f:
                     data = json.load(f)
@@ -100,15 +98,12 @@ class BankOfAbyssiniaAPI:
 
     async def _ensure_authenticated(self) -> str:
         """Ensure we have a valid access token"""
-        # Check in-memory cache first
-        print("========")
-        print(self.refresh_token)
+
         if self._token_cache and self._is_token_valid(self._token_cache):
             return self._token_cache["access_token"]
 
         # Check file cache
         disk_token = self._load_token_file()
-        print(disk_token)
         if disk_token and self._is_token_valid(disk_token):
             self._token_cache.update(disk_token)
             return disk_token["access_token"]
@@ -123,8 +118,6 @@ class BankOfAbyssiniaAPI:
             raise BoAAuthenticationError("Missing required BoA API credentials")
 
         token_url = f"{self.base_url}/oauth2/token"
-        print(f"➡️ Request URL: {token_url}")
-        print("Refresh token:", self.refresh_token)
         payload = {
             "client_id": self.client_id,
             "client_secret": self.client_secret,
@@ -323,5 +316,3 @@ class BankOfAbyssiniaAPI:
 
 # Global instance for dependency injection
 boa_api = BankOfAbyssiniaAPI()
-
-print(boa_api.api_key)

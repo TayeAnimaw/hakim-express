@@ -41,7 +41,6 @@ def create_admin_user(db: Session):
         db.add(admin_user)
         db.commit()
         db.refresh(admin_user)
-        print("Admin user created.")
     else:
         print("Admin user already exists.")
 
@@ -56,7 +55,6 @@ def seed_countries(db: Session):
         ]
         db.add_all(countries)
         db.commit()
-        print("Seeded countries.")
     else:
         print("Countries already exist.")
 
@@ -70,7 +68,6 @@ def seed_banks(db: Session):
         ]
         db.add_all(banks)
         db.commit()
-        print("Seeded banks.")
     else:
         print("Banks already exist.")
 
@@ -79,7 +76,6 @@ def seed_transaction_fees(db: Session):
         fees = TransactionFees(stripe_fee=2.9, service_fee=1.0, margin=2.0, is_active=True)
         db.add(fees)
         db.commit()
-        print("Seeded default transaction fees.")
     else:
         print("Transaction fees already exist.")
 
@@ -92,6 +88,5 @@ def seed_exchange_rates(db: Session):
         ]
         db.add_all(rates)
         db.commit()
-        print("Seeded exchange rates.")
     else:
         print("Exchange rates already exist.")
