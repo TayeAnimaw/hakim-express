@@ -112,14 +112,43 @@ async def get_beneficiary_name_other_bank(
     try:
         # change the implementation to boa_api service direct call
         result = await boa_api.fetch_beneficiary_name_other_bank(bank_id, account_id)
-        print("==========================")
-        print(result)
-        print("111111111111111111111")
-        if not result:
+        header = result.get("header", {})
+        body = result.get("body", [])
+        status_code = result.get("http_status", 200)
+        if (status_code != 200):
+            try: 
+                error_message = result.get("error",{}).get("message", "Try again later")
+            except:
+                error_message = "Try again later"
+            return JSONResponse(
+                status_code=status_code,
+                content={
+                    "success": False,
+                    "message" : error_message
+                }
+            )
+        if not body:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Beneficiary not found or API error"
+                detail="Beneficiary not found"
             )
+        boa_data = body[0]
+        error_code = boa_data.get("errorCode", "ok")
+        if(error_code.lower() != "ok"):
+            error_desc = boa_data.get("errDesc", "Unknown error")
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "success" : False,
+                    "message": error_desc
+                }
+            )
+        mapped_data = {
+            "customer_name": boa_data.get("beneficiaryName", "Unknown"),
+            "account_currency": boa_data.get("accountCurrency", "ETB"),
+            "enquiry_status": boa_data.get("enquiryStatus", ""),   # BoA does not return this field
+            "cached": False
+        }
         return BoABeneficiaryResponse(**result)
     except BoAServiceError as e:
         logger.error(f"Service error fetching other bank beneficiary: {str(e)}")
