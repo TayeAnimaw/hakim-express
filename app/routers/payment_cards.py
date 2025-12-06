@@ -415,7 +415,9 @@ async def pay_with_card(
             "payment_intent": intent
         }
     except stripe.error.StripeError as e:
+        print(e)
         raise HTTPException(status_code=400, detail=e.user_message)
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=500, detail="Payment failed")
         
