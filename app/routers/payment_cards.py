@@ -6,7 +6,7 @@ from app.database.database import get_db
 from app.models.payment_cards import PaymentCard
 from app.schemas.payment_cards import PaymentCardCreate, PaymentCardUpdate, PaymentCardResponse
 from app.models.users import User
-from app.security import get_current_user  # Use your actual token-based auth dependency
+from app.security import JWTBearer, get_current_user  # Use your actual token-based auth dependency
 import stripe
 from app.core.config import settings  # Add this if you're using .env
 stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -182,3 +182,17 @@ def delete_payment_card(
     card.is_active = False
     db.commit()
     return {"detail": "Payment card deactivated successfully"}
+
+@router.post("/")
+async def pay_with_card(
+    amount: float,
+    token: dict = Depends(JWTBearer()),
+    db: Session = Depends(get_db) 
+):
+    current_user = get_current_user(db, token)
+    if(current_user is None):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        pass
+    except Exception as e:
+        pass
