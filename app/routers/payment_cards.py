@@ -329,8 +329,6 @@ def update_payment_card(
     db.commit()
     db.refresh(card)
     return card
-
-
 @router.put("/{payment_card_id}/set_default")
 def set_default_card(
     payment_card_id: int,
@@ -338,11 +336,8 @@ def set_default_card(
     current_user: User = Depends(get_current_user)
 ):
     card = db.query(PaymentCard).filter_by(payment_card_id=payment_card_id).first()
-
     if not card or card.user_id != current_user.user_id:
         raise HTTPException(status_code=403, detail="Not authorized or card not found")
-    # first we must make false to existing default card because only one card can be default
-    # then we can set this card as default
     default_card = db.query(PaymentCard).filter_by(
         user_id=current_user.user_id,
         is_default=True
@@ -397,12 +392,8 @@ async def pay_with_card(
             PaymentCard.is_default == True,
             PaymentCard.is_active == True
         ).first()
-        print(card)
         if not card:
             raise HTTPException(status_code=400, detail="No default payment card found")
-
-        # create a payment intent
-        print(card.stripe_payment_method_id)
         intent = stripe.PaymentIntent.create(
             amount=int(amount),
             currency="usd",
@@ -420,9 +411,7 @@ async def pay_with_card(
             "payment_intent": intent
         }
     except stripe.error.StripeError as e:
-        print(e)
         raise HTTPException(status_code=400, detail=e.user_message)
     except Exception as e:
-        print(e)
         raise HTTPException(status_code=500, detail="Payment failed")
         
