@@ -378,7 +378,7 @@ def delete_payment_card(
     db.commit()
     return {"detail": "Payment card deactivated successfully"}
 
-@router.post("/")
+@router.post("/pay")
 async def pay_with_card(
     amount: float,
     token: dict = Depends(JWTBearer()),
