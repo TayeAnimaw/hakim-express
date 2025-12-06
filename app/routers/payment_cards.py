@@ -226,11 +226,15 @@ async def pay_with_card(
                 "allow_redirects": "never"
             }
         )
+        charge = stripe.Charge.retrieve(intent["latest_charge"])
+        receipt_url = charge["receipt_url"]
 
         return {
             "message": "Payment successful",
-            "payment_intent": intent
+            "payment_intent_id": intent["id"],
+            "receipt_url": receipt_url
         }
+        
     except stripe.error.StripeError as e:
         raise HTTPException(status_code=400, detail=e.user_message)
     except Exception as e:
