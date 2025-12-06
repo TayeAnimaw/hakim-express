@@ -408,7 +408,11 @@ async def pay_with_card(
             currency="usd",
             customer=stripe_customer_id,
             payment_method=card.stripe_payment_method_id,
-            confirm=True
+            confirm=True,
+            automatic_payment_methods={
+                "enabled": True,
+                "allow_redirects": "never"
+            }
         )
 
         return {
