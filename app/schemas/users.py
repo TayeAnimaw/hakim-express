@@ -95,7 +95,6 @@ class UserOut(BaseModel):
     user_weekly_limit: Optional[int] = None
     created_at: datetime
     updated_at: datetime
-    kyc_document: Optional[KYCDocumentUser] = None
     profile_picture: Optional[str] = None
 class UserList(BaseModel):
     kyc_document: Optional[KYCDocumentUser] = None
