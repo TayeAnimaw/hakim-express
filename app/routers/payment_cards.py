@@ -393,6 +393,7 @@ async def pay_with_card(
         if not strip_payment_id:
             raise HTTPException(status_code=400, detail="Customer ID not found")
         # create a payment intent
+        
         intent = stripe.PaymentIntent.create(
             amount=int(amount),
             currency="usd",
@@ -402,5 +403,6 @@ async def pay_with_card(
         )
         return JSONResponse(status_code=200, content={"message": "Payment successful", "payment_intent": intent})
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=500, detail="Payment failed")
         
