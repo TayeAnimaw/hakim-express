@@ -389,20 +389,33 @@ async def pay_with_card(
         raise HTTPException(status_code=401, detail="Unauthorized")
     try:
         # find user stipe payment id
-        strip_payment_id = current_user.stripe_customer_id
-        if not strip_payment_id:
+        stripe_customer_id = current_user.stripe_customer_id
+        if not stripe_customer_id:
             raise HTTPException(status_code=400, detail="Customer ID not found")
+        card = db.query(PaymentCard).filter(
+            PaymentCard.user_id == current_user.user_id,
+            PaymentCard.is_default == True,
+            PaymentCard.is_active == True
+        ).first()
+        if not card:
+            raise HTTPException(status_code=400, detail="No default payment card found")
+
         # create a payment intent
         
         intent = stripe.PaymentIntent.create(
             amount=int(amount),
             currency="usd",
-            customer=strip_payment_id,
-            payment_method_types=["card"],
+            customer=stripe_customer_id,
+            payment_method=card.stripe_payment_method_id,
             confirm=True
         )
-        return JSONResponse(status_code=200, content={"message": "Payment successful", "payment_intent": intent})
+
+        return {
+            "message": "Payment successful",
+            "payment_intent": intent
+        }
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=400, detail=e.user_message)
     except Exception as e:
-        print(e)
         raise HTTPException(status_code=500, detail="Payment failed")
         
