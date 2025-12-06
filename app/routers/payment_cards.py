@@ -397,11 +397,12 @@ async def pay_with_card(
             PaymentCard.is_default == True,
             PaymentCard.is_active == True
         ).first()
+        print(card)
         if not card:
             raise HTTPException(status_code=400, detail="No default payment card found")
 
         # create a payment intent
-        
+        print(card.stripe_payment_method_id)
         intent = stripe.PaymentIntent.create(
             amount=int(amount),
             currency="usd",
