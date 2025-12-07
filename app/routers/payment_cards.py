@@ -225,10 +225,6 @@ def create_payment_card(
             customer = stripe.Customer.retrieve(current_user.stripe_customer_id)
 
 
-        # Step 2: Attach payment method to customer
-        # if you get demo payment method from the above create_stripe_payment_method function and pass 
-        # the stripe payment_method_id in the request body you must comment the below try except block
-        # commented block is for test token only we must use the below code in production
         try:
             
             stripe.PaymentMethod.attach(
