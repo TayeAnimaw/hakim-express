@@ -15,7 +15,7 @@ app = FastAPI(
 
 @app.on_event("startup")
 def on_startup():
-    create_all_tables()
+    # create_all_tables()
     db = SessionLocal()
     try:
         create_admin_user(db)
