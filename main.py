@@ -5,6 +5,7 @@ from app.database.database import Base, SessionLocal, engine, init_redis
 from app.seeders import create_admin_user
 from app.routers import auth, users, payment_cards, recipients ,manual_deposits, notifications, kyc_documents, admin_kyc, admin_transactions,user_transactions, admin,dashboard, admin_exchange_rate, user_exchange_rate, admin_role, contact_us, admin_transaction_fees, admin_role,country, bank, user_transaction_fees, boa_integration
 from app.seeders import create_admin_user
+from app.database.create_database import create_all_tables
 
 app = FastAPI(
     title="Hakim Express API",
@@ -14,6 +15,7 @@ app = FastAPI(
 
 @app.on_event("startup")
 def on_startup():
+    create_all_tables()
     db = SessionLocal()
     try:
         create_admin_user(db)
