@@ -51,7 +51,7 @@ app.include_router(user_transaction_fees.router, prefix="/api/user/transaction-f
 app.include_router(auth.router, prefix="/api/auth",tags=["Auth"])
 app.include_router(users.router, prefix="/api", tags=["Profile Management"])
 app.include_router(kyc_documents.router, prefix="/api/kyc", tags=["User - KYC Documents"])
-app.include_router(payment_cards.router, prefix="/api", tags=[" User Payment Cards"])
+app.include_router(payment_cards.router, prefix="/api/payment-cards", tags=[" User Payment Cards"])
 app.include_router(user_transactions.router, prefix="/api/user/transactions", tags=["User Transactions"])
 app.include_router(user_exchange_rate.router, prefix="/api/user/exchange-rates", tags=["User Exchange Rates"])
 app.include_router(manual_deposits.router, prefix="/api/manual-deposits", tags=["Manual Deposits"])
