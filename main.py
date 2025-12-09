@@ -65,7 +65,6 @@ app.include_router(bank.router, prefix="/api/banks", tags=["Banks List"])
 app.include_router(boa_integration.router, prefix="/api/boa", tags=["Bank of Abyssinia Integration"])
 
 
-
 # Root endpoint
 @app.get("/")
 def read_root():
