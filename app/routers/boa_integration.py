@@ -510,18 +510,7 @@ async def get_bank_list(
 ):
     
     try:
-        # dummy list
-        bank = [
-            {"bank_id": "231402", "institution_name" : "Commercial Bank of Ethiopia"},
-            {"bank_id": "231402", "institution_name" : "Awash International Bank"},
-            {"bank_id": "231402", "institution_name" : "Dashen Bank"},
-            {"bank_id": "231402", "institution_name" : "Wegagen Bank"},
-            {"bank_id": "231402", "institution_name" : "Nib International Bank"},
-            {"bank_id": "231402", "institution_name" : "Birhan Bank"},
-            {"bank_id": "231402", "institution_name" : "Buna Bank"},
-            
-        ]
-        return [BoABankListResponse(**bank) for bank in bank]
+        
         result = await boa_api.get_bank_list()
 
         boa_banks = result.get("body", [])
