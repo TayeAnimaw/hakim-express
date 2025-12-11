@@ -276,7 +276,7 @@ async def create_user(
     db: Session = Depends(get_db)
 ):
     # Ensure either email or phone is provided
-    # emial is not case senstive
+    # email is not case sensitive
     if user_data.email:
         user_data.email = normalize_email(user_data.email)
     if not user_data.email and not user_data.phone:
@@ -335,9 +335,9 @@ async def create_user(
 
         # Determine OTP
         if user_data.email:
-            # otp = generate_random_otp()
+            otp = generate_random_otp()
             # to pass OTP we use hard coded only for test
-            otp = "123456"
+            # otp = "123456"
             # save the otp on redis
             await store_verification_code(user_data.email, otp)
         else:
@@ -381,7 +381,7 @@ async def verify_otp(data: OTPVerify, db: Session = Depends(get_db)):
         # Validate that either email or phone is provided
         if not data.email and not data.phone:
             raise HTTPException(status_code=400, detail="Email or phone number is required for verification.")
-        # email is not case senstive
+        # email is not case sensitive
         if data.email:
             data.email = normalize_email(data.email)
         # Retrieve user using email or phone
@@ -484,7 +484,7 @@ async def resend_otp(
 ):
     if not data.email and not data.phone:
         raise HTTPException(status_code=400, detail="Email or phone is required.")
-    # email is not case senstive
+    # email is not case sensitive
     if data.email:
         data.email = normalize_email(data.email)
     # Query user by email or phone
@@ -502,9 +502,9 @@ async def resend_otp(
 
     # Refresh OTP and expiry
     if data.email:
-        # otp = generate_random_otp()
+        otp = generate_random_otp()
         # to pass OTP we use hard coded only for test
-        otp = "123456"
+        # otp = "123456"
         # save the otp on redis
         await store_verification_code(data.email, otp)
         subject = "Your New OTP Code for Verification"
@@ -537,7 +537,7 @@ async def create_admin(user_data: UserCreate, db: Session = Depends(get_db)):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Either email or phone number must be provided."
         )
-    # email is not case senstive
+    # email is not case sensitive
     if user_data.email:
         user_data.email = normalize_email(user_data.email)
     # Check if verified email already exists
