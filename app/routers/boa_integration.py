@@ -511,7 +511,7 @@ async def get_bank_list(
     
     try:
         result = await boa_api.get_bank_list()
-
+        print(result)
         boa_banks = result.get("body", [])
         status_code = result.get("http_status", 200)
         if (status_code != 200):
