@@ -373,7 +373,7 @@ async def create_user(
             await send_email_async(subject, db_user.email, body)
         else:
             message = f"Hakim Express: Welcome! Your OTP is {otp}. Expires in 10 minutes. Complete your registration."
-            await send_sms(db_user.phone, message)
+            send_sms(db_user.phone, message)
 
         return db_user
 
@@ -524,7 +524,7 @@ async def resend_otp(
         otp = generate_random_otp()
         await store_verification_code(data.phone, otp)
         message = f"Hakim Express: You requested a new OTP. Your OTP is {otp} and it is valid for 10 minutes. \nDo not share this code with anyone."
-        await send_sms(data.phone, message)
+        send_sms(data.phone, message)
         # No SMS sending since SMS provider is not configured
 
     return {
