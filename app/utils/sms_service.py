@@ -1,14 +1,13 @@
 
 from twilio.rest import Client
-from app.core.config import TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER
-
+from app.core.config import settings
 def send_sms(phone_number: str, otp: str) -> dict:
     
     try:
-        client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
         message = client.messages.create(
             body=f"Your OTP code is: {otp}",
-            from_=TWILIO_PHONE_NUMBER,
+            from_=settings.TWILIO_PHONE_NUMBER,
             to=phone_number
         )
         print(f"Message SID: {message.sid}")
