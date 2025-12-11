@@ -27,6 +27,8 @@ from app.security import (
     create_refresh_token      
 )
 import random
+
+from app.utils.sms_service import send_sms
 router = APIRouter()
 
 
@@ -341,7 +343,10 @@ async def create_user(
             # save the otp on redis
             await store_verification_code(user_data.email, otp)
         else:
-            otp = "123456"  # Static OTP for phone-only registration
+            # otp = "123456"  # Static OTP for phone-only registration
+            otp = generate_random_otp()
+            # send otp via sms
+            
             # save the otp on redis by phone number
             await store_verification_code(user_data.phone, otp)
 
@@ -364,6 +369,9 @@ async def create_user(
             subject = "Your OTP Code for Account Verification"
             body = f"Hello {db_user.email},\n\nYour OTP code is: {otp}\n\nThis code will expire in 10 minutes.\n\nThank you!"
             await send_email_async(subject, db_user.email, body)
+        else:
+            message = f"Hakim Express: Welcome! Your OTP is {otp}. Expires in 10 minutes. Complete your registration."
+            await send_sms(db_user.phone, message)
 
         return db_user
 
@@ -511,14 +519,15 @@ async def resend_otp(
         body = f"Hi {user.email},\n\nYour new OTP code is: {otp}\nThis code will expire in 10 minutes.\n\nThanks!"
         await send_email_async(subject, user.email, body)
     else:
-        # For phone-only users: use static OTP
-        otp = "123456"  # same OTP
+        otp = generate_random_otp()
         await store_verification_code(data.phone, otp)
+        message = f"Hakim Express: You requested a new OTP. Your OTP is {otp} and it is valid for 10 minutes. \nDo not share this code with anyone."
+        await send_sms(data.phone, message)
         # No SMS sending since SMS provider is not configured
 
     return {
         "message": "A new OTP has been set. Check your contact method.",
-        "otp_delivery": "email" if user.email else "phone (static OTP)"
+        "otp_delivery": "email" if user.email else "phone"
     }
 
 # Logout endpoint - invalidates the token at the client-side (handled on the client)
