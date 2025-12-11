@@ -336,6 +336,7 @@ async def create_user(
             user_email = f"phone_{user_data.phone}_{unique_suffix}@example.com"
 
         # Determine OTP
+        print(user_data.email, user_data.phone)
         if user_data.email:
             otp = generate_random_otp()
             # to pass OTP we use hard coded only for test
@@ -343,9 +344,9 @@ async def create_user(
             # save the otp on redis
             await store_verification_code(user_data.email, otp)
         else:
-            # otp = "123456"  # Static OTP for phone-only registration
+    
             otp = generate_random_otp()
-            # send otp via sms
+        
             
             # save the otp on redis by phone number
             await store_verification_code(user_data.phone, otp)
@@ -365,7 +366,8 @@ async def create_user(
         db.refresh(db_user)
 
         # Send OTP to email if email is provided (skip for generated temp emails)
-        if db_user.email and not db_user.email.endswith('@temp.local'):
+        print(db_user)
+        if user_data.email and not user_data.email.endswith('@temp.local'):
             subject = "Your OTP Code for Account Verification"
             body = f"Hello {db_user.email},\n\nYour OTP code is: {otp}\n\nThis code will expire in 10 minutes.\n\nThank you!"
             await send_email_async(subject, db_user.email, body)
