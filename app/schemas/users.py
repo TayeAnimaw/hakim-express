@@ -23,7 +23,36 @@ class OTPVerify(BaseModel):
 class ReSendOTPRequest(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
-
+class ResetPasswordRequest(BaseModel):
+    emailOrPhone : str
+class ResetPasswordConfirm(BaseModel):
+    emailOrPhone: str
+    password: constr(min_length=8) # type: ignore
+    @validator('password')
+    def strong_password(cls, v):
+        if not any(char.isupper() for char in v):
+           raise ValueError('Password must contain at least one uppercase letter')
+        if not any(char.islower() for char in v):
+            raise ValueError('Password must contain at least one lowercase letter')
+        if not any(char.isdigit() for char in v):
+            raise ValueError('Password must contain at least one digit')
+        if not any(char in "!@#$%^&*()_+" for char in v):
+            raise ValueError('Password must contain at least one special character (!@#$%^&*()_+)')
+        return v
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: constr(min_length=8) # type: ignore
+    @validator('new_password')
+    def strong_password(cls, v):
+        if not any(char.isupper() for char in v):
+           raise ValueError('Password must contain at least one uppercase letter')
+        if not any(char.islower() for char in v):
+            raise ValueError('Password must contain at least one lowercase letter')
+        if not any(char.isdigit() for char in v):
+            raise ValueError('Password must contain at least one digit')
+        if not any(char in "!@#$%^&*()_+" for char in v):
+            raise ValueError('Password must contain at least one special character (!@#$%^&*()_+)')
+        return v
 class UserBase(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[constr(min_length=10, max_length=15)] = None # type: ignore

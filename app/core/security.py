@@ -1,4 +1,5 @@
 import random
+import re
 import string
 
 from passlib.context import CryptContext
@@ -26,7 +27,6 @@ async def verify_code(email_or_phone: str, code: str):
     key = f"verify:{email}"
     stored_code = await redis.get(key)
     print(stored_code, code)
-    
     if stored_code is None:
        return False
     
@@ -42,7 +42,7 @@ async def set_email_verified(email_or_phone: str):
     email = email_or_phone.lower().strip()
     redis = await get_redis()
     key = f"email_verified:{email}"
-    await redis.set(key, "true", ex=180)
+    await redis.set(key, "true", ex=600)
 # check if the email is verified by otp recently
 async def verify_email_verified(email_or_phone: str) -> bool:
     email = email_or_phone.lower().strip()
@@ -80,3 +80,11 @@ def create_stripe_payment_method(email: str = "dev@example.com") -> str:
 
     except stripe.error.StripeError as e:
         return None
+
+def is_valid_phone_number(phone: str) -> bool:
+    """
+    Check if a phone number is valid with country code (E.164 format).
+    Example valid: +251912345678, +491234567890
+    """
+    pattern = r'^\+[1-9]\d{7,14}$'
+    return bool(re.fullmatch(pattern, phone))
