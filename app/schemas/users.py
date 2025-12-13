@@ -23,7 +23,11 @@ class OTPVerify(BaseModel):
 class ReSendOTPRequest(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
-
+class ResetPasswordRequest(BaseModel):
+    emailOrPhone : str
+class ResetPasswordConfirm(BaseModel):
+    emailOrPhone: str
+    password: str
 class UserBase(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[constr(min_length=10, max_length=15)] = None # type: ignore
