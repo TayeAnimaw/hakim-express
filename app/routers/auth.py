@@ -376,6 +376,7 @@ async def forgetPassword(
             subject = "Your New OTP Code for Reset Password"
             message = f"Hakim Express: You requested a new OTP for reset password. Your OTP is {otp} and it is valid for 10 minutes. \nDo not share this code with anyone."
             await store_verification_code(email, otp)
+            await send_email_async(subject, email, message)
             return {
                 "Success" : True,
                 "detail" : "OTP sent successfully!"
