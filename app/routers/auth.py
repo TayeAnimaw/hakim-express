@@ -27,6 +27,8 @@ from app.security import (
     create_refresh_token      
 )
 import random
+
+from app.utils.sms_service import send_sms
 router = APIRouter()
 
 
@@ -276,7 +278,7 @@ async def create_user(
     db: Session = Depends(get_db)
 ):
     # Ensure either email or phone is provided
-    # emial is not case senstive
+    # email is not case sensitive
     if user_data.email:
         user_data.email = normalize_email(user_data.email)
     if not user_data.email and not user_data.phone:
@@ -334,14 +336,18 @@ async def create_user(
             user_email = f"phone_{user_data.phone}_{unique_suffix}@example.com"
 
         # Determine OTP
+        print(user_data.email, user_data.phone)
         if user_data.email:
-            # otp = generate_random_otp()
+            otp = generate_random_otp()
             # to pass OTP we use hard coded only for test
-            otp = "123456"
+            # otp = "123456"
             # save the otp on redis
             await store_verification_code(user_data.email, otp)
         else:
-            otp = "123456"  # Static OTP for phone-only registration
+    
+            otp = generate_random_otp()
+        
+            
             # save the otp on redis by phone number
             await store_verification_code(user_data.phone, otp)
 
@@ -360,10 +366,14 @@ async def create_user(
         db.refresh(db_user)
 
         # Send OTP to email if email is provided (skip for generated temp emails)
-        if db_user.email and not db_user.email.endswith('@temp.local'):
+        print(db_user)
+        if user_data.email and not user_data.email.endswith('@temp.local'):
             subject = "Your OTP Code for Account Verification"
             body = f"Hello {db_user.email},\n\nYour OTP code is: {otp}\n\nThis code will expire in 10 minutes.\n\nThank you!"
             await send_email_async(subject, db_user.email, body)
+        else:
+            message = f"Hakim Express: Welcome! Your OTP is {otp}. Expires in 10 minutes. Complete your registration."
+            send_sms(db_user.phone, message)
 
         return db_user
 
@@ -381,7 +391,7 @@ async def verify_otp(data: OTPVerify, db: Session = Depends(get_db)):
         # Validate that either email or phone is provided
         if not data.email and not data.phone:
             raise HTTPException(status_code=400, detail="Email or phone number is required for verification.")
-        # email is not case senstive
+        # email is not case sensitive
         if data.email:
             data.email = normalize_email(data.email)
         # Retrieve user using email or phone
@@ -484,7 +494,7 @@ async def resend_otp(
 ):
     if not data.email and not data.phone:
         raise HTTPException(status_code=400, detail="Email or phone is required.")
-    # email is not case senstive
+    # email is not case sensitive
     if data.email:
         data.email = normalize_email(data.email)
     # Query user by email or phone
@@ -502,23 +512,24 @@ async def resend_otp(
 
     # Refresh OTP and expiry
     if data.email:
-        # otp = generate_random_otp()
+        otp = generate_random_otp()
         # to pass OTP we use hard coded only for test
-        otp = "123456"
+        # otp = "123456"
         # save the otp on redis
         await store_verification_code(data.email, otp)
         subject = "Your New OTP Code for Verification"
         body = f"Hi {user.email},\n\nYour new OTP code is: {otp}\nThis code will expire in 10 minutes.\n\nThanks!"
         await send_email_async(subject, user.email, body)
     else:
-        # For phone-only users: use static OTP
-        otp = "123456"  # same OTP
+        otp = generate_random_otp()
         await store_verification_code(data.phone, otp)
+        message = f"Hakim Express: You requested a new OTP. Your OTP is {otp} and it is valid for 10 minutes. \nDo not share this code with anyone."
+        send_sms(data.phone, message)
         # No SMS sending since SMS provider is not configured
 
     return {
         "message": "A new OTP has been set. Check your contact method.",
-        "otp_delivery": "email" if user.email else "phone (static OTP)"
+        "otp_delivery": "email" if user.email else "phone"
     }
 
 # Logout endpoint - invalidates the token at the client-side (handled on the client)
@@ -537,7 +548,7 @@ async def create_admin(user_data: UserCreate, db: Session = Depends(get_db)):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Either email or phone number must be provided."
         )
-    # email is not case senstive
+    # email is not case sensitive
     if user_data.email:
         user_data.email = normalize_email(user_data.email)
     # Check if verified email already exists

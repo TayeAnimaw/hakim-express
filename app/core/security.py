@@ -25,6 +25,7 @@ async def verify_code(email_or_phone: str, code: str):
     redis = await get_redis()
     key = f"verify:{email}"
     stored_code = await redis.get(key)
+    print(stored_code, code)
     
     if stored_code is None:
        return False

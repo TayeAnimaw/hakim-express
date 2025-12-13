@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     BOA_X_API_KEY: str | None = os.getenv("BOA_X_API_KEY")
     BOA_AUTH_PREFIX: str = os.getenv("BOA_AUTH_PREFIX", "")
     BOA_TOKEN_FILE: str = os.getenv("BOA_TOKEN_FILE", "./boa_token.json")
+    
+    # Twilio SMS Configuration
+    TWILIO_ACCOUNT_SID: str | None = os.getenv("TWILIO_ACCOUNT_SID")
+    TWILIO_AUTH_TOKEN: str | None = os.getenv("TWILIO_AUTH_TOKEN")
+    TWILIO_PHONE_NUMBER: str | None = os.getenv("TWILIO_PHONE_NUMBER")
 
     # Pydantic v2 config
     model_config = SettingsConfigDict(

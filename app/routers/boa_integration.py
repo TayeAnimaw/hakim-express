@@ -393,6 +393,7 @@ async def check_transaction_status(
     try:
         # change the implementation to boa_api service direct call
         result = await boa_api.check_transaction_status(transaction_id)
+        print(result)
         header = result.get("header", {})
         body = result.get("body", {})
         status_code = result.get("http_status", 200)
@@ -511,7 +512,7 @@ async def get_bank_list(
     
     try:
         result = await boa_api.get_bank_list()
-
+        print(result)
         boa_banks = result.get("body", [])
         status_code = result.get("http_status", 200)
         if (status_code != 200):
