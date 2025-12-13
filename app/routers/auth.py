@@ -389,6 +389,7 @@ async def forgetPassword(
                     status_code= status.HTTP_404_NOT_FOUND,
                     content = {"detail" : "User not found with this phone Number"}
                 )
+            await store_verification_code(data.emailOrPhone, otp)
             message = f"Hakim Express: You requested a new OTP for reset password. Your OTP is {otp} and it is valid for 10 minutes, \nDo not share this code with anyone"
             send_sms(data.emailOrPhone, message)
             return {
