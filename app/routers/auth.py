@@ -363,8 +363,8 @@ async def forgetPassword(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 content={"detail" : "Invalid request format"}
             )
-        isEmail = data.emailOrPhone.contain("@")
-        otp = generate_random_otp
+        isEmail = "@" in data.emailOrPhone
+        otp = generate_random_otp()
         if isEmail:
             email = normalize_email(data.emailOrPhone)
             user = db.query(User).filter(User.email == email).first()
@@ -381,19 +381,22 @@ async def forgetPassword(
                 "detail" : "OTP sent successfully!"
             }
         else:
-            user = db.query(User).filter(User.phone == data.emailOrPhone)
-            if(user is None):return JSONResponse(
+
+            user = db.query(User).filter(User.phone == data.emailOrPhone).first()
+            if(user is None):
+                return JSONResponse(
                     status_code= status.HTTP_404_NOT_FOUND,
                     content = {"detail" : "User not found with this phone Number"}
                 )
             message = f"Hakim Express: You requested a new OTP for reset password. Your OTP is {otp} and it is valid for 10 minutes, \nDo not share this code with anyone"
-            await send_sms(data.emailOrPhone, message)
+            send_sms(data.emailOrPhone, message)
             return {
                 "Success" : True,
                 "detail" : "OTP sent successfully!"
             }
                     
     except Exception as e:
+        print(e)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"detail" : "Could not process the request"}
