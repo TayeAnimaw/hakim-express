@@ -402,7 +402,35 @@ async def forgetPassword(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"detail" : "Could not process the request"}
         )
-            
+@router.post("/confirm-reset-request")
+async def confirmResetRequest(
+    data: OTPVerify,
+    db: Session = Depends(get_db)
+):
+    try:
+        if(data.email is None and data.phone is None):
+            return JSONResponse(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                content={"detail" : "Invalid request format"}
+                
+            )
+        emailOrPhone = normalize_email(data.email) if data.email else data.phone
+        isValid = await verify_code(emailOrPhone, data.otp)
+        if not isValid:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"detail" : "Invalid OTP"}
+            )
+        await set_email_verified(emailOrPhone)
+        return {
+            "Success" : True,
+            "detail" : "OTP verified successfully"
+        }
+    except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail" : "could not process the request"}
+        )
 @router.post("/reset-password")
 async def resetPassword(
     data: ResetPasswordConfirm,
