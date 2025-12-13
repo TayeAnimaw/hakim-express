@@ -11,7 +11,7 @@ from app.models.users import Role, User
 from app.security import get_password_hash, verify_password
 from app.core.config import settings
 from typing import Annotated
-from app.schemas.users import ReSendOTPRequest, ResetPasswordConfirm, ResetPasswordRequest, Token, UserLogin, OTPVerify, UserCreate, UserOut, UserUpdate, RefreshTokenRequest
+from app.schemas.users import ChangePasswordRequest, ReSendOTPRequest, ResetPasswordConfirm, ResetPasswordRequest, Token, UserLogin, OTPVerify, UserCreate, UserOut, UserUpdate, RefreshTokenRequest
 from app.utils.email_service import normalize_email, send_email_async
 from fastapi import Body
 from fastapi import Request
@@ -471,7 +471,39 @@ async def resetPassword(
             status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"detail" : "Could not process the request"}
         )
-        
+@router.post("/change-password")
+async def change_password(
+    data: ChangePasswordRequest,
+    token: dict = Depends(JWTBearer()),
+    db: Session = Depends(get_db)
+    
+):
+    try:
+        current_user = get_current_user(db, token)
+        if not current_user:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"detail": "User not authenticated"}
+                
+            )
+        if not verify_password(data.current_password, current_user.password):
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={"detail": "Current password is incorrect"}
+            )
+        new_hashed_password = get_password_hash(data.new_password)
+        current_user.password = new_hashed_password
+        db.commit()
+        db.refresh(current_user)
+        return {
+            "Success" : True,
+            "detail" : "Password changed successfully"
+        }
+    except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": "Could not process the request"}
+        )
 # Logout endpoint - invalidates the token at the client-side (handled on the client)
 @router.post("/logout")
 async def logout(
