@@ -518,7 +518,7 @@ async def logout(
 
 @router.post("/delete-account")
 async def delete_account(
-    login_data = UserLogin,
+    login_data: UserLogin,
     db: Session = Depends(get_db)
 ):
     try:
