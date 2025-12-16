@@ -518,21 +518,23 @@ async def logout(
 
 @router.post("/delete-account")
 async def delete_account(
-    token : dict = Depends(JWTBearer()),
+    login_data = UserLogin,
     db: Session = Depends(get_db)
 ):
     try:
-        current_user = get_current_user(db, token)
-        if not current_user:
-            return JSONResponse(
-                status_code = status.HTTP_401_UNAUTHORIZED,
-                content = {"detail" : "user not authenticated"}
+        user = authenticate_user(db, login_data.login_id, login_data.password)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid Credentials or incorrect username/password",
+                headers={"WWW-Authenticate": "Bearer"},
             )
-        user = db.query(User).filter(User.user_id == current_user.user_id).first()
-        kyc = db.query(KYCDocument).filter(KYCDocument.user_id == current_user.user_id).first()
-        notification = db.query(Notification).filter(Notification.user_id == current_user.user_id).all()
-        card = db.query(PaymentCard).filter(PaymentCard.user_id == current_user.user_id).all()
-        transaction = db.query(Transaction).filter(Transaction.user_id == current_user.user_id).all()
+        user_id = user.user_id
+        user = db.query(User).filter(User.user_id == user_id).first()
+        kyc = db.query(KYCDocument).filter(KYCDocument.user_id == user_id).first()
+        notification = db.query(Notification).filter(Notification.user_id == user_id).all()
+        card = db.query(PaymentCard).filter(PaymentCard.user_id == user_id).all()
+        transaction = db.query(Transaction).filter(Transaction.user_id == user_id).all()
         if kyc:
             db.delete(kyc)
         for note in notification:
@@ -554,6 +556,44 @@ async def delete_account(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"detail" : "Could not process the request"}
         )
+# @router.post("/delete-account")
+# async def delete_account(
+#     token : dict = Depends(JWTBearer()),
+#     db: Session = Depends(get_db)
+# ):
+#     try:
+#         current_user = get_current_user(db, token)
+#         if not current_user:
+#             return JSONResponse(
+#                 status_code = status.HTTP_401_UNAUTHORIZED,
+#                 content = {"detail" : "user not authenticated"}
+#             )
+#         user = db.query(User).filter(User.user_id == current_user.user_id).first()
+#         kyc = db.query(KYCDocument).filter(KYCDocument.user_id == current_user.user_id).first()
+#         notification = db.query(Notification).filter(Notification.user_id == current_user.user_id).all()
+#         card = db.query(PaymentCard).filter(PaymentCard.user_id == current_user.user_id).all()
+#         transaction = db.query(Transaction).filter(Transaction.user_id == current_user.user_id).all()
+#         if kyc:
+#             db.delete(kyc)
+#         for note in notification:
+#             db.delete(note)
+#         for c in card:
+#             db.delete(c)
+#         for t in transaction:
+#             db.delete(t)
+#         if user:
+#             db.delete(user)
+#         db.commit()
+#         return {
+#             "Success" : True,
+#             "detail" : "Account and all associated data deleted successfully"
+#         }
+#     except Exception as e:
+#         db.rollback()
+#         return JSONResponse(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             content={"detail" : "Could not process the request"}
+#         )
 
 @router.post("/create-admin", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 async def create_admin(user_data: UserCreate, db: Session = Depends(get_db)):
