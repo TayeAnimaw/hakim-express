@@ -551,6 +551,7 @@ async def delete_account(
             "detail" : "Account and all associated data deleted successfully"
         }
     except Exception as e:
+        print(e)
         db.rollback()
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
