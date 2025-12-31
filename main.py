@@ -39,7 +39,6 @@ async def startup_event():
     Initializes Redis connection on startup.
     """
     await init_redis()
-    print("Redis initialized successfully.")
 
 app.include_router(dashboard.router, prefix="/api/admin", tags=["Dashboard"])
 app.include_router(admin.router, prefix="/api", tags=["Admin User"])

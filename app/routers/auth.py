@@ -188,8 +188,6 @@ async def create_user(
             # '@example.com' is a safe, valid dummy domain for testing and auto-generated users.
             user_email = f"phone_{user_data.phone}_{unique_suffix}@example.com"
 
-        # Determine OTP
-        print(user_data.email, user_data.phone)
         if user_data.email:
             otp = generate_random_otp()
             # to pass OTP we use hard coded only for test
@@ -218,8 +216,6 @@ async def create_user(
         db.commit()
         db.refresh(db_user)
 
-        # Send OTP to email if email is provided (skip for generated temp emails)
-        print(db_user)
         if user_data.email and not user_data.email.endswith('@temp.local'):
             subject = "Your OTP Code for Account Verification"
             body = f"Hello {db_user.email},\n\nYour OTP code is: {otp}\n\nThis code will expire in 10 minutes.\n\nThank you!"
@@ -402,7 +398,6 @@ async def forgetPassword(
             }
                     
     except Exception as e:
-        print(e)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"detail" : "Could not process the request"}
@@ -551,7 +546,6 @@ async def delete_account(
             "detail" : "Account and all associated data deleted successfully"
         }
     except Exception as e:
-        print(e)
         db.rollback()
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
