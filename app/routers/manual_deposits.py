@@ -7,7 +7,7 @@ from app.models.manual_deposits import ManualDeposit
 from app.models.transactions import Transaction, TransactionStatus
 from app.models.users import User, Role
 from app.schemas.manual_deposits import ManualDepositResponse, ManualDepositUpdate, ManualDepositResponseList
-from app.security import get_current_user
+from app.security import JWTBearer, get_current_user
 from datetime import datetime
 from app.models.notifications import Notification, ChannelType
 
@@ -41,8 +41,9 @@ def update_manual_deposit(
     completed: Optional[bool] = Form(None),
     file: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer())
 ):
+    current_user = get_current_user(db, token)
     if current_user.role != Role.admin:
         raise HTTPException(status_code=403, detail="Only admins can update this")
 
@@ -98,8 +99,9 @@ from fastapi import status
 def delete_manual_deposit(
     deposit_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token : dict = Depends(JWTBearer())
 ):
+    current_user = get_current_user(db, token)
     if current_user.role != Role.admin:
         raise HTTPException(status_code=403, detail="Only admins can delete manual deposits")
 

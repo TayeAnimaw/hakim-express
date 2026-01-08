@@ -6,7 +6,7 @@ from app.database.database import get_db
 from app.models.recipients import Recipient
 from app.models.users import User
 from app.schemas.recipients import RecipientCreate, RecipientUpdate, RecipientResponse
-from app.security import get_current_user
+from app.security import JWTBearer, get_current_user
 
 router = APIRouter()
 
@@ -15,8 +15,9 @@ router = APIRouter()
 def create_recipient(
     data: RecipientCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer())
 ):
+    current_user = get_current_user(db, token)
     # Check if recipient already exists for the user
     existing = db.query(Recipient).filter_by(phone=data.phone, user_id=current_user.user_id).first()
     if existing:
@@ -44,8 +45,9 @@ def create_recipient(
 @router.get("/", response_model=List[RecipientResponse])
 def get_all_recipients(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer())
 ):
+    current_user = get_current_user(db, token)
     if current_user.role == "admin":
         return db.query(Recipient).all()
     return db.query(Recipient).filter_by(user_id=current_user.user_id).all()
@@ -55,8 +57,9 @@ def get_all_recipients(
 def get_recipient(
     recipient_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer())
 ):
+    current_user = get_current_user(db, token)
     recipient = db.query(Recipient).filter_by(recipient_id=recipient_id).first()
     if not recipient:
         raise HTTPException(status_code=404, detail="Recipient not found")
@@ -72,8 +75,9 @@ def update_recipient(
     recipient_id: int,
     data: RecipientUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer())
 ):
+    current_user = get_current_user(db, token)
     recipient = db.query(Recipient).filter_by(recipient_id=recipient_id).first()
     if not recipient:
         raise HTTPException(status_code=404, detail="Recipient not found")
@@ -105,8 +109,9 @@ def update_recipient(
 def delete_recipient(
     recipient_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer())
 ):
+    current_user = get_current_user(db, token)
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Only admin can delete recipients")
 

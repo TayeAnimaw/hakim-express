@@ -18,9 +18,10 @@ router = APIRouter()
 def create_payment_card(
     payment_card: PaymentCardCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer())
 ):
     try:
+        current_user = get_current_user(db, token)
         # Step 1: Create Stripe customer if needed
 
         if not current_user.stripe_customer_id:

@@ -26,9 +26,9 @@ import shutil
 async def upload_profile_picture(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer())
 ):
-    user = db.query(User).filter(User.user_id == current_user.user_id).first()
+    user = get_current_user(db, token)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     # Save new file
@@ -52,9 +52,9 @@ async def upload_profile_picture(
 async def update_profile_picture(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer())
 ):
-    user = db.query(User).filter(User.user_id == current_user.user_id).first()
+    user = get_current_user(db, token)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     # Remove old file if present
@@ -77,10 +77,10 @@ async def update_profile_picture(
 @router.get("/view-profile-picture", response_model=UserProfileUpdate)
 def get_profile_picture(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    token: dict = Depends(JWTBearer()),
     request: Request = None
 ):
-    user = db.query(User).filter(User.user_id == current_user.user_id).first()
+    user = get_current_user(db, token)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     # Construct the public URL if profile_picture exists
@@ -105,9 +105,10 @@ async def change_password(
     new_password: str = Form(...),
     confirm_password: str = Form(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer())
 ):
-    db_user = db.query(User).filter(User.user_id == current_user.user_id).first()
+    db_user = get_current_user(db, token)
+    
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
     if not verify_password(current_password, db_user.password):
@@ -122,66 +123,7 @@ async def change_password(
 
     return {"message": "Password changed successfully"}
 
-# Forgot password (reset password flow via email)
-@router.post("/forgot-password")
-async def forgot_password(email: str, db: Session = Depends(get_db)):
-    # email is not case sensitive
-    email = normalize_email(email)
-    user = db.query(User).filter(User.email == email).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
 
-    # Generate a temporary reset token valid for 15 minutes
-    reset_token = create_access_token(
-        data={"sub": str(user.user_id)},
-        expires_delta=timedelta(minutes=15)
-    )
-
-    # Send email with reset link
-    # reset_link = f"https://hakim-express-admin.vercel.app/reset-password?token=%7BRESET_TOKEN%7D?token={reset_token}"
-    reset_link = f"https://hakim-express-admin.vercel.app/reset-password?token={reset_token}"
-    subject = "Reset Your Password"
-    body = f"""
-    Hi {user.email},
-
-    We received a request to reset your password.
-    Click the link below to reset it:
-
-    {reset_link}
-
-    This link will expire in 15 minutes.
-
-    If you did not request this, you can safely ignore this email.
-
-    Regards,
-    Your App Support
-    """
-    await send_email_async(subject, user.email, body)
-
-    return {"message": "Password reset link sent to your email"}
-
-@router.post("/reset-password")
-def reset_password(
-    token: str = Form(...),
-    new_password: str = Form(...),
-    confirm_password: str = Form(...),
-    db: Session = Depends(get_db)
-):
-    payload = verify_access_token(token)
-    user_id = int(payload.get("sub"))
-
-    user = db.query(User).filter(User.user_id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    if new_password != confirm_password:
-        raise HTTPException(status_code=400, detail="Passwords do not match")
-
-    user.password = get_password_hash(new_password)
-    db.commit()
-    db.refresh(user)
-
-    return {"message": "Password reset successful"}
 @router.put("/update-your-profile", response_model=UserProfile)
 async def update_user_profile(
     email: Optional[str] = None,
@@ -190,9 +132,9 @@ async def update_user_profile(
     last_name: Optional[str] = None,
     selfie_image: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    token: dict = Depends(JWTBearer())
 ):
-    user = db.query(User).filter(User.user_id == current_user.user_id).first()
+    user = get_current_user(db, token)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 

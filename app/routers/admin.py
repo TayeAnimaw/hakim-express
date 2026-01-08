@@ -99,6 +99,11 @@ def update_user(
     """
     current_user = get_current_user(db, token)
     # normalize email because email is not case sensitive
+    if current_user.role != Role.admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
     if(not user_update.email):
         user_update.email = normalize_email(user_update.email)
     if current_user.role != Role.admin:

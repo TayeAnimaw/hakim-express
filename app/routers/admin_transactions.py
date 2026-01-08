@@ -10,7 +10,7 @@ from app.models.transactions import Transaction, TransactionStatus
 from app.models.manual_deposits import ManualDeposit
 
 from app.schemas.transactions import TransactionUpdate, TransactionResponse
-from app.security import get_current_user
+from app.security import JWTBearer, get_current_user
 from app.models.users import User, Role
 from app.models.payment_cards import PaymentCard
 from app.models.notifications import Notification, ChannelType
@@ -29,8 +29,9 @@ def get_all_transactions(
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer()),
 ):
+    current_user = get_current_user(db, token)
     if current_user.role != Role.admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
 
@@ -67,8 +68,9 @@ def get_all_transactions(
 def get_transaction_details(
     transaction_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer()),
 ):
+    current_user = get_current_user(db, token)
     if current_user.role != Role.admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
 
@@ -87,8 +89,9 @@ def update_transaction_status(
     transaction_id: int,
     data: TransactionUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer()),
 ):
+    current_user = get_current_user(db, token)
     if current_user.role != Role.admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
 
@@ -167,8 +170,9 @@ def update_transaction_status(
 def get_user_transaction_limits(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer()),
 ):
+    current_user = get_current_user(db, token)
     if current_user.role != Role.admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
 
@@ -183,8 +187,9 @@ def get_user_transaction_limits(
 def delete_transaction(
     transaction_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer()),
 ):
+    current_user = get_current_user(db, token)
     if current_user.role != Role.admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
 

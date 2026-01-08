@@ -16,7 +16,7 @@ from app.schemas.transaction_fees import (
     TransactionFeesResponse,
     TransactionFeesUpdate
 )
-from app.security import get_current_user
+from app.security import JWTBearer, get_current_user
 from app.models.users import User, Role
 
 router = APIRouter()
@@ -32,8 +32,11 @@ def admin_required(current_user: User = Depends(get_current_user)):
 def create_exchange_rate(
     data: ExchangeRateCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(admin_required)
+    token: dict = Depends(JWTBearer()),
 ):
+    user = get_current_user(db,token)
+    if user.role not in [Role.admin, Role.finance_officer, Role.support]:
+        raise HTTPException(status_code=403, detail="Not authorized")
     exchange_rate = ExchangeRate(**data.dict())
     db.add(exchange_rate)
     db.commit()
@@ -44,8 +47,11 @@ def create_exchange_rate(
 @router.get("/", response_model=List[ExchangeRateResponse])
 def get_all_exchange_rates(
     db: Session = Depends(get_db),
-    current_user: User = Depends(admin_required)
+    token: dict = Depends(JWTBearer()),
 ):
+    user = get_current_user(db,token)
+    if user.role not in [Role.admin, Role.finance_officer, Role.support]:
+        raise HTTPException(status_code=403, detail="Not authorized")
     return db.query(ExchangeRate).order_by(ExchangeRate.created_at.desc()).all()
 
 
@@ -53,8 +59,11 @@ def get_all_exchange_rates(
 def delete_exchange_rate(
     exchange_rate_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(admin_required)
+    token: dict = Depends(JWTBearer()),
 ):
+    user = get_current_user(db,token)
+    if user.role not in [Role.admin, Role.finance_officer, Role.support]:
+        raise HTTPException(status_code=403, detail="Not authorized")
     exchange_rate = db.query(ExchangeRate).filter_by(exchange_rate_id=exchange_rate_id).first()
     if not exchange_rate:
         raise HTTPException(status_code=404, detail="Exchange rate not found")
@@ -69,9 +78,12 @@ def convert_amount(
     from_currency: str,
     to_currency: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer())
 ):
     # Get exchange rate
+    user = get_current_user(db,token)
+    if user.role not in [Role.admin, Role.finance_officer, Role.support]:
+        raise HTTPException(status_code=403, detail="Not authorized")
     rate = db.query(ExchangeRate).filter_by(
         from_currency=from_currency,
         to_currency=to_currency,

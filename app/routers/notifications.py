@@ -9,15 +9,16 @@ from app.models.notifications import Notification
 from app.schemas.notifications import NotificationCreate, NotificationOut
 # File: app/routers/notifications.py
 from app.models.users import User
-from app.security import get_current_user
+from app.security import JWTBearer, get_current_user
 
 router = APIRouter()
 
 @router.get("/", response_model=List[NotificationOut])
 def get_notifications(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer())
 ):
+    current_user = get_current_user(db, token)
     notifications = db.query(Notification).filter(
         Notification.user_id == current_user.user_id
     ).order_by(Notification.created_at.desc()).all()
@@ -27,8 +28,9 @@ def get_notifications(
 @router.get("/unread-count")
 def get_unread_count(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer())
 ):
+    current_user = get_current_user(db, token)
     count = db.query(Notification).filter(
         Notification.user_id == current_user.user_id,
         Notification.is_read == False
@@ -40,8 +42,9 @@ def get_unread_count(
 def mark_as_read(
     notification_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer())
 ):
+    current_user = get_current_user(db, token)
     notification = db.query(Notification).filter(
         Notification.notification_id == notification_id,
         Notification.user_id == current_user.user_id
