@@ -15,7 +15,7 @@ from app.schemas.exchange_rates import (
 )
 from app.models.transaction_fees import TransactionFees
 
-from app.security import get_current_user
+from app.security import JWTBearer, get_current_user
 from app.models.users import User, Role
 from app.models.transactions import Transaction, TransactionStatus
 from sqlalchemy.orm import Session
@@ -32,19 +32,21 @@ def get_all_exchange_rates(db: Session = Depends(get_db)):
 @router.get("/all-live-exchange-rates", response_model=List[ExchangeRateResponse])
 def get_all_exchange_rates(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer())
 ):
+    _ = get_current_user(db, token)
     return db.query(ExchangeRate).order_by(ExchangeRate.created_at.desc()).all()
 @router.get("/available-balance", response_model=dict)
 def get_user_stripe_balance(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer())
 ):
     """
     Get user's Stripe balance information including current balance and growth percentage.
     Returns data in a format suitable for displaying as a balance insight card.
     """
     # Get successful transactions
+    current_user = get_current_user(db, token)
     successful_transactions = db.query(Transaction)\
         .filter(
             Transaction.user_id == current_user.user_id,

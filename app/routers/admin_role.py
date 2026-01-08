@@ -5,7 +5,7 @@ from typing import List
 from app.database.database import get_db
 from app.models.admin_role import AdminRole, AdminActivity, AdminPermission
 from app.models.users import User, Role
-from app.security import get_current_user, get_current_admin_user
+from app.security import JWTBearer, get_current_user, get_current_admin_user
 from app.schemas.users import UserOut
 from app.utils.utils import extract_pages_from_activity
 from app.schemas.admin_role import AdminResponse, AdminActivityResponse, AdminActivityCreate, AdminPermissionCreate, AdminCreate
@@ -17,7 +17,12 @@ def assign_permissions(
     user_id: int,
     permissions: List[AdminPermissionCreate],
     db: Session = Depends(get_db),
+    token: dict = Depends(JWTBearer()),
 ):
+    user = get_current_user(db,token)
+    if user.role not in [Role.admin, Role.finance_officer, Role.support]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+   
     admin_role = db.query(AdminRole).filter(AdminRole.user_id == user_id).first()
     if not admin_role:
         admin_role = AdminRole(user_id=user_id)
@@ -33,8 +38,12 @@ def assign_permissions(
 @router.get("/activity-logs", response_model=List[AdminActivityResponse])
 def get_activity_logs(
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin_user)  # <-- requires admin token
+    token: dict = Depends(JWTBearer()),
 ):
+    user = get_current_user(db,token)
+    if user.role not in [Role.admin, Role.finance_officer, Role.support]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    current_admin = get_current_admin_user(user)
     logs = db.query(AdminActivity).join(AdminRole).join(User).all()
     result = []
 
@@ -54,8 +63,12 @@ def get_activity_logs(
 def toggle_admin_status(
     user_id: int,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin_user)
+    token: dict = Depends(JWTBearer()),
 ):
+    admin_user = get_current_user(db,token)
+    if admin_user.role not in [Role.admin, Role.finance_officer, Role.support]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    current_admin = get_current_admin_user(admin_user)
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

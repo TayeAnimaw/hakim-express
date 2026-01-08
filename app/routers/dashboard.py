@@ -16,7 +16,7 @@ from app.models.transactions import Transaction
 from app.models.users import User, Role
 from app.models.manual_deposits import ManualDeposit
 from app.models.kyc_documents import KYCDocument
-from app.security import get_current_user
+from app.security import JWTBearer, get_current_user
 from sqlalchemy.orm import joinedload
 from app.schemas.kyc_documents import KYCDocumentUser
 from app.schemas.dashboard import MetricWithChange
@@ -33,8 +33,11 @@ def require_admin(user: User = Depends(get_current_user)) -> User:
 @router.get("/summary", response_model=SummaryMetrics)
 def get_summary_metrics(
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin)
+    token: dict = Depends(JWTBearer())
 ):
+    user = get_current_user(db,token)
+    if user.role not in [Role.admin, Role.finance_officer, Role.support]:
+        raise HTTPException(status_code=403, detail="Not authorized")
     today = datetime.utcnow().date()
     week_ago = today - timedelta(days=7)
     previous_week = week_ago - timedelta(days=7)
@@ -119,9 +122,10 @@ def get_summary_metrics(
 @router.get("/daily-transactions", response_model=List[DailyTransaction])
 def get_daily_transactions(
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    token: dict = Depends(JWTBearer()),
     days: int = 10
 ):
+    _ = get_current_user(db, token)
     start_date = datetime.utcnow().date() - timedelta(days=days)
 
     result = db.query(
@@ -142,9 +146,10 @@ def get_daily_transactions(
 @router.get("/users-over-time", response_model=UsersOverTimeResponse)
 def get_users_over_time(
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    token: dict = Depends(JWTBearer()),
     days: int = 14
 ):
+    _ = get_current_user(db, token)
     today = datetime.utcnow().date()
     start_date = today - timedelta(days=days)
     week_start = today - timedelta(days=7)
@@ -191,9 +196,10 @@ from sqlalchemy.orm import joinedload
 @router.get("/latest-transactions", response_model=List[LatestTransaction])
 def get_latest_transactions(
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),    
+    token: dict = Depends(JWTBearer()),   
     limit: int = 10
 ):
+    _ = get_current_user(db, token)
     query = db.query(Transaction).options(
         joinedload(Transaction.user).joinedload(User.kyc_document)
     ).join(

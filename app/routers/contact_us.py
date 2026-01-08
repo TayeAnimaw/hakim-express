@@ -6,7 +6,7 @@ from typing import List
 from app.database.database import get_db
 from app.models.contact_us import ContactUs
 from app.schemas.contact_us import ContactUsCreate, ContactUsResponse
-from app.security import get_current_user
+from app.security import JWTBearer, get_current_user
 from app.models.users import User, Role
 from app.models.notifications import Notification, ChannelType
 from datetime import datetime
@@ -46,8 +46,11 @@ def submit_contact_us(data: ContactUsCreate, db: Session = Depends(get_db)):
 @router.get("/", response_model=List[ContactUsResponse])
 def get_all_messages(
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin)
+    token: dict = Depends(JWTBearer())
 ):
+    user = get_current_user(db,token)
+    if user.role not in [Role.admin, Role.finance_officer, Role.support]:
+        raise HTTPException(status_code=403, detail="Not authorized")
     return db.query(ContactUs).order_by(ContactUs.created_at.desc()).all()
 
 #  Only admin can delete a message
@@ -55,8 +58,11 @@ def get_all_messages(
 def delete_message(
     contact_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin)
+    token: dict = Depends(JWTBearer())
 ):
+    user = get_current_user(db,token)
+    if user.role not in [Role.admin, Role.finance_officer, Role.support]:
+        raise HTTPException(status_code=403, detail="Not authorized")
     contact = db.query(ContactUs).filter(ContactUs.id == contact_id).first()
     if not contact:
         raise HTTPException(status_code=404, detail="Contact message not found")

@@ -8,7 +8,7 @@ from app.schemas.transaction_fees import (
     TransactionFeesResponse,
     TransactionFeesUpdate
 )
-from app.security import get_current_user
+from app.security import JWTBearer, get_current_user
 from app.models.users import User, Role
 from datetime import datetime
 from app.models.notifications import Notification, ChannelType
@@ -18,8 +18,10 @@ router = APIRouter()
 @router.get("/", response_model=TransactionFeesResponse)
 def get_transaction_fees(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    
+    token: dict = Depends(JWTBearer()),
 ):
+    current_user = get_current_user(db, token)
     if current_user.role != Role.admin:
         raise HTTPException(status_code=403, detail="Admin access required")
     
@@ -35,8 +37,9 @@ def get_transaction_fees(
 def update_transaction_fees(
     data: TransactionFeesUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer()),
 ):
+    current_user = get_current_user(db, token)
     if current_user.role != Role.admin:
         raise HTTPException(status_code=403, detail="Admin access required")
     

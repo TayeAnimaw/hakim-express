@@ -40,9 +40,10 @@ def submit_kyc(
     back_image: UploadFile = File(None),
     selfie_image: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user : User = Depends(get_current_user),
+    token : dict = Depends(JWTBearer())
 ):
     try:
+        current_user = get_current_user(db, token)
         if not current_user.is_verified:
             raise HTTPException(status_code=403, detail="User must verify OTP before submitting KYC")
 

@@ -7,7 +7,7 @@ from app.database.database import get_db
 from app.models.transactions import Transaction, TransactionStatus
 from app.schemas.transactions import TransactionCreate, TransactionResponse, AccountType, TransactionUpdate
 from decimal import Decimal
-from app.security import get_current_user
+from app.security import JWTBearer, get_current_user
 from app.models.users import User, Role
 from app.models.payment_cards import PaymentCard
 import stripe
@@ -43,13 +43,14 @@ def create_user_transaction(
     country: Optional[str] = Form(None),
 
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer())
 ):
     """
     Create a new transaction using either a saved card or manual card entry.
     """
 
     # 🚫 Prevent admins from using this endpoint
+    current_user = get_current_user(db, token)
     if current_user.role == Role.admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -178,12 +179,13 @@ def create_user_transaction(
 async def process_boa_transfer(
     transaction_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer())
 ):
     """
     Process a transaction through Bank of Abyssinia API
     """
     # Get the transaction
+    current_user = get_current_user(db, token)
     transaction = db.query(Transaction).filter(
         Transaction.transaction_id == transaction_id,
         Transaction.user_id == current_user.user_id
@@ -302,12 +304,13 @@ async def process_boa_transfer(
 async def validate_beneficiary(
     transaction_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer())
 ):
     """
     Validate beneficiary account before processing transfer
     """
     # Get the transaction
+    current_user = get_current_user(db, token)
     transaction = db.query(Transaction).filter(
         Transaction.transaction_id == transaction_id,
         Transaction.user_id == current_user.user_id
@@ -353,11 +356,12 @@ async def validate_beneficiary(
 @router.get("/", response_model=List[TransactionResponse])
 def get_user_transactions(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer())
 ):
     """
     Get all transactions for the authenticated user
     """
+    current_user = get_current_user(db, token)
     return db.query(Transaction)\
         .options(joinedload(Transaction.payment_card))\
         .filter(Transaction.user_id == current_user.user_id)\
@@ -368,11 +372,12 @@ def get_user_transactions(
 def get_user_transaction(
     transaction_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    token: dict = Depends(JWTBearer())
 ):
     """
     Get specific transaction details for the authenticated user
     """
+    current_user = get_current_user(db, token)
     transaction = db.query(Transaction)\
         .options(joinedload(Transaction.payment_card))\
         .filter(
