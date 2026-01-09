@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from fastapi import security
+
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.database.database import Base, SessionLocal, engine, init_redis
@@ -24,13 +24,12 @@ app = FastAPI(
 app.add_middleware(SlowAPIMiddleware)
 @app.middleware("http")
 async def global_rate_limit(request: Request, call_next):
-    # This ensures that even if you forget to add @limiter to a route, 
-    # the global logic is initialized.
     return await call_next(request)
 app.state.limiter = limiter
+basic_auth = HTTPBasic()
 ADMIN_USER = "admin"
 ADMIN_PASS = "secure_password_123"
-def authenticate_docs(credentials: HTTPBasicCredentials = Depends(security)):
+def authenticate_docs(credentials: HTTPBasicCredentials = Depends(basic_auth)):
     if credentials.username != ADMIN_USER or credentials.password != ADMIN_PASS:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -38,12 +37,9 @@ def authenticate_docs(credentials: HTTPBasicCredentials = Depends(security)):
             headers={"WWW-Authenticate": "Basic"},
         )
     return credentials.username
-
-# 3. Create protected routes for documentation
 @app.get("/docs", include_in_schema=False)
 async def get_swagger_documentation(username: str = Depends(authenticate_docs)):
     return get_swagger_ui_html(openapi_url="/openapi.json", title="Docs")
-
 @app.get("/openapi.json", include_in_schema=False)
 async def openapi_endpoint(username: str = Depends(authenticate_docs)):
     return app.openapi()
@@ -55,11 +51,8 @@ def on_startup():
         create_admin_user(db)
     finally:
         db.close()
-# Mount static files for uploads
+
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-
-# Adding CORS middleware for cross-origin requests (adjust as necessary)
-
 
 app.add_middleware(
     CORSMiddleware,
