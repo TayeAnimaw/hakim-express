@@ -5,13 +5,17 @@ from app.database.database import Base, SessionLocal, engine, init_redis
 from app.seeders import create_admin_user
 from app.routers import auth, users, payment_cards, recipients ,manual_deposits, notifications, kyc_documents, admin_kyc, admin_transactions,user_transactions, admin,dashboard, admin_exchange_rate, user_exchange_rate, admin_role, contact_us, admin_transaction_fees, admin_role,country, bank, user_transaction_fees, boa_integration
 from app.seeders import create_admin_user
+from app.core.security import limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
 
 app = FastAPI(
     title="Hakim Express API",
     description="API documentation for Hakim Express.",
     version="1.0.0",
 )
-
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 @app.on_event("startup")
 def on_startup():
     db = SessionLocal()
