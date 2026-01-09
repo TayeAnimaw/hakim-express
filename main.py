@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi import security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.database.database import Base, SessionLocal, engine, init_redis
@@ -8,13 +9,44 @@ from app.seeders import create_admin_user
 from app.core.security import limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
-
+from slowapi.middleware import SlowAPIMiddleware
+from fastapi import Request
+from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi import Depends, status
 app = FastAPI(
     title="Hakim Express API",
     description="API documentation for Hakim Express.",
     version="1.0.0",
+    docs_url=None, 
+    redoc_url=None
 )
+app.add_middleware(SlowAPIMiddleware)
+@app.middleware("http")
+async def global_rate_limit(request: Request, call_next):
+    # This ensures that even if you forget to add @limiter to a route, 
+    # the global logic is initialized.
+    return await call_next(request)
 app.state.limiter = limiter
+ADMIN_USER = "admin"
+ADMIN_PASS = "secure_password_123"
+def authenticate_docs(credentials: HTTPBasicCredentials = Depends(security)):
+    if credentials.username != ADMIN_USER or credentials.password != ADMIN_PASS:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect login for docs",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return credentials.username
+
+# 3. Create protected routes for documentation
+@app.get("/docs", include_in_schema=False)
+async def get_swagger_documentation(username: str = Depends(authenticate_docs)):
+    return get_swagger_ui_html(openapi_url="/openapi.json", title="Docs")
+
+@app.get("/openapi.json", include_in_schema=False)
+async def openapi_endpoint(username: str = Depends(authenticate_docs)):
+    return app.openapi()
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 @app.on_event("startup")
 def on_startup():
