@@ -1,17 +1,50 @@
+
 from fastapi import FastAPI, HTTPException
+
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.database.database import Base, SessionLocal, engine, init_redis
 from app.seeders import create_admin_user
 from app.routers import auth, users, payment_cards, recipients ,manual_deposits, notifications, kyc_documents, admin_kyc, admin_transactions,user_transactions, admin,dashboard, admin_exchange_rate, user_exchange_rate, admin_role, contact_us, admin_transaction_fees, admin_role,country, bank, user_transaction_fees, boa_integration
 from app.seeders import create_admin_user
-
+from app.core.security import limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.middleware import SlowAPIMiddleware
+from fastapi import Request
+from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi import Depends, status
+from app.core.config import settings
 app = FastAPI(
     title="Hakim Express API",
     description="API documentation for Hakim Express.",
     version="1.0.0",
+    docs_url=None, 
+    redoc_url=None
 )
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware) # This activates the global 60/min limit
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+basic_auth = HTTPBasic()
+ADMIN_USER = settings.DOCUSERNAME
+ADMIN_PASS = settings.DOCPASSWORD
+def authenticate_docs(credentials: HTTPBasicCredentials = Depends(basic_auth)):
+    if credentials.username != ADMIN_USER or credentials.password != ADMIN_PASS:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect login for docs",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return credentials.username
+@app.get("/docs", include_in_schema=False)
+async def get_swagger_documentation(username: str = Depends(authenticate_docs)):
+    return get_swagger_ui_html(openapi_url="/openapi.json", title="Docs")
+@app.get("/openapi.json", include_in_schema=False)
+async def openapi_endpoint(username: str = Depends(authenticate_docs)):
+    return app.openapi()
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 @app.on_event("startup")
 def on_startup():
     db = SessionLocal()
@@ -19,11 +52,8 @@ def on_startup():
         create_admin_user(db)
     finally:
         db.close()
-# Mount static files for uploads
+
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-
-# Adding CORS middleware for cross-origin requests (adjust as necessary)
-
 
 app.add_middleware(
     CORSMiddleware,

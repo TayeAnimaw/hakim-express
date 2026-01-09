@@ -1,7 +1,8 @@
 import random
 import re
 import string
-
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from passlib.context import CryptContext
 from app.database.database import get_redis
 import stripe
@@ -9,6 +10,10 @@ from .config import *
 import stripe
 from fastapi import HTTPException
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["30/minute"]  # Allows 60 requests per minute globally per IP
+)
 
 def generate_random_otp(length: int = 6) -> str:
     generated_otp: str = "".join(random.choices(string.digits, k=length))
@@ -88,3 +93,27 @@ def is_valid_phone_number(phone: str) -> bool:
     """
     pattern = r'^\+[1-9]\d{7,14}$'
     return bool(re.fullmatch(pattern, phone))
+
+
+async def check_rate_limit(email_or_phone: str, action: str, limit: int = 5, window: int = 600):
+
+    email = email_or_phone.lower().strip()
+    redis = await get_redis()
+    key = f"rate_limit:{action}:{email}"
+    
+    current_attempts = await redis.get(key)
+    
+    if current_attempts and int(current_attempts) >= limit:
+        return False  # Limit exceeded
+    
+    return True
+
+async def increment_rate_limit(email_or_phone: str, action: str, window: int = 600):
+    """Increments the attempt counter for a specific user action."""
+    email = email_or_phone.lower().strip()
+    redis = await get_redis()
+    key = f"rate_limit:{action}:{email}"
+ 
+    new_val = await redis.incr(key)
+    if new_val == 1:
+        await redis.expire(key, window)

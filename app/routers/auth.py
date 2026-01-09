@@ -4,7 +4,7 @@ from typing import Optional
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from datetime import timedelta, datetime
-from app.core.security import generate_random_otp, set_email_verified, store_verification_code, verify_code, verify_email_verified
+from app.core.security import check_rate_limit,limiter, generate_random_otp, set_email_verified, store_verification_code, verify_code, verify_email_verified
 from app.database.database import get_db
 from app.models.admin_role import AdminPermission, AdminRole
 from app.models.kyc_documents import KYCDocument
@@ -43,6 +43,9 @@ async def login_for_access_token(
     db: Session = Depends(get_db)
 ):
     # Check if user exists and authenticate user
+    allowed = await check_rate_limit(login_data.login_id, action="login", limit=5)
+    if not allowed:
+        raise HTTPException(status_code=429, detail="Too many login attempts. Try again in 10 minutes.")
     user = authenticate_user(db, login_data.login_id, login_data.password)
     if not user:
         raise HTTPException(
@@ -65,7 +68,7 @@ async def login_for_access_token(
         await store_verification_code(login_data.login_id, otp)
         # This is where you send OTP to the user via email/SMS
         subject = "Verify Your OTP Code"
-        body = f"Dear {user.email},\n\nYour OTP code is: {otp}\n\nIt will expire in 10 minutes.\n\nRegards,\nAdmin Taye"
+        body = f"Dear {user.email},\n\nYour OTP code is: {otp}\n\nIt will expire in 10 minutes."
         await send_email_async(subject, user.email, body)
 
         raise HTTPException(
@@ -98,6 +101,7 @@ async def login_for_access_token(
 
 
 @router.post("/refresh-token", response_model=Token)
+
 async def refresh_token(data: RefreshTokenRequest, db: Session = Depends(get_db)):
     refresh_token = data.refresh_token
     try:
@@ -315,6 +319,9 @@ async def resend_otp(
     data: ReSendOTPRequest,
     db: Session = Depends(get_db)
 ):
+    allowed = await check_rate_limit(f"otp_{data.email if data.email else data.phone}", action="otp request", limit=3)
+    if not allowed:
+        raise HTTPException(status_code=429, detail="Too many otp requests. Try again in 10 minutes.")
     if not data.email and not data.phone:
         raise HTTPException(status_code=400, detail="Email or phone is required.")
     # email is not case sensitive
@@ -361,6 +368,9 @@ async def forgetPassword(
     
     
 ):
+    allowed = await check_rate_limit(f"forget_password_{data.emailOrPhone}", action="forget_password", limit=4)
+    if not allowed:
+        raise HTTPException(status_code=429, detail="Too many forget password attempts. Try again in 10 minutes.")
     try:
         if(data.emailOrPhone is None):
             return JSONResponse(
@@ -413,6 +423,9 @@ async def confirmResetRequest(
     db: Session = Depends(get_db)
 ):
     try:
+        allowed = await check_rate_limit(f"confirm_reset_{data.emailOrPhone}", action="confirm_reset", limit=5)
+        if not allowed:
+            raise HTTPException(status_code=429, detail="Too many confirm reset attempts. Try again in 10 minutes.")
         if(data.email is None and data.phone is None):
             return JSONResponse(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -442,6 +455,9 @@ async def resetPassword(
     db: Session = Depends(get_db)
 ) :
     try:
+        allowed = await check_rate_limit(f"reset_password_{data.emailOrPhone}", action="reset_password", limit=5)
+        if not allowed:
+            raise HTTPException(status_code=429, detail="Too many reset password attempts. Try again in 10 minutes.")
         if(data.emailOrPhone is None or data.password is None):
             return JSONResponse(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -483,6 +499,9 @@ async def change_password(
     
 ):
     try:
+        allowed = await check_rate_limit(f"change_password_{data.emailOrPhone}", action="change_password", limit=5)
+        if not allowed:
+            raise HTTPException(status_code=429, detail="Too many change password attempts. Try again in 10 minutes.")
         current_user = get_current_user(db, token)
         if not current_user:
             return JSONResponse(

@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     TWILIO_ACCOUNT_SID: str | None = os.getenv("TWILIO_ACCOUNT_SID")
     TWILIO_AUTH_TOKEN: str | None = os.getenv("TWILIO_AUTH_TOKEN")
     TWILIO_PHONE_NUMBER: str | None = os.getenv("TWILIO_PHONE_NUMBER")
+    # documentation for pydantic settings
+    DOCUSERNAME: str = os.getenv("DOCUSERNAME", "admin")
+    DOCPASSWORD: str = os.getenv("DOCPASSWORD", "")
 
     # Pydantic v2 config
     model_config = SettingsConfigDict(
