@@ -1,4 +1,4 @@
-from django.conf import settings
+
 from fastapi import FastAPI, HTTPException
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,6 +15,7 @@ from fastapi import Request
 from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi import Depends, status
+from app.core.config import settings
 app = FastAPI(
     title="Hakim Express API",
     description="API documentation for Hakim Express.",
