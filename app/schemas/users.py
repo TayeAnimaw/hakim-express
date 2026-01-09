@@ -1,6 +1,7 @@
 # app/schemas/users.py
-from pydantic import BaseModel, EmailStr, constr, validator, Field, root_validator
-from typing import Optional
+import re
+from pydantic import BaseModel, EmailStr, constr, field_validator, model_validator, validator, Field, root_validator
+from typing import Optional, Self
 from enum import Enum
 from datetime import datetime
 from sqlalchemy import Column, BigInteger, String, Boolean, TIMESTAMP, Text, Enum as SQLAlchemyEnum
@@ -63,17 +64,31 @@ class UserBase(BaseModel):
 
 class UserCreate(BaseModel):     
     email: Optional[EmailStr] = None
-    phone: Optional[constr(min_length=10, max_length=15)] = None # type: ignore
-    password: constr(min_length=8) # type: ignore
+    phone: Optional[str] = None
+    password: str
 
-    @root_validator(skip_on_failure=True)
-    def at_least_one_contact(cls, values):
-        email, phone = values.get('email'), values.get('phone')
-        if not email and not phone:
+    @model_validator(mode='after')
+    def at_least_one_contact(self) -> Self:
+        if not self.email and not self.phone:
             raise ValueError('Either email or phone must be provided.')
-        return values
-    @validator('password')
-    def strong_password(cls, v):
+        return self
+
+    @field_validator('phone')
+    @classmethod
+    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        # E.164 Regex: Starts with +, followed by 10-15 digits
+        pattern = r"^\+[1-9]\d{9,14}$"
+        if not re.match(pattern, v):
+            raise ValueError('Phone number must be in E.164 format (e.g. +251911223344)')
+        return v
+
+    @field_validator('password')
+    @classmethod
+    def strong_password(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
         if not any(char.isupper() for char in v):
            raise ValueError('Password must contain at least one uppercase letter')
         if not any(char.islower() for char in v):
