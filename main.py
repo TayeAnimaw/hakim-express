@@ -1,3 +1,4 @@
+from django.conf import settings
 from fastapi import FastAPI, HTTPException
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,14 +22,13 @@ app = FastAPI(
     docs_url=None, 
     redoc_url=None
 )
-app.add_middleware(SlowAPIMiddleware)
-@app.middleware("http")
-async def global_rate_limit(request: Request, call_next):
-    return await call_next(request)
 app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware) # This activates the global 60/min limit
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 basic_auth = HTTPBasic()
-ADMIN_USER = "admin"
-ADMIN_PASS = "secure_password_123"
+ADMIN_USER = settings.DOCUSERNAME
+ADMIN_PASS = settings.DOCPASSWORD
 def authenticate_docs(credentials: HTTPBasicCredentials = Depends(basic_auth)):
     if credentials.username != ADMIN_USER or credentials.password != ADMIN_PASS:
         raise HTTPException(

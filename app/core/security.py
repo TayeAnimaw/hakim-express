@@ -10,7 +10,10 @@ from .config import *
 import stripe
 from fastapi import HTTPException
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-limiter = Limiter(key_func=get_remote_address)
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["10/minute"]  # Allows 60 requests per minute globally per IP
+)
 
 def generate_random_otp(length: int = 6) -> str:
     generated_otp: str = "".join(random.choices(string.digits, k=length))
