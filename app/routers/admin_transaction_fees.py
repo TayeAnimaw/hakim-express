@@ -15,7 +15,7 @@ from app.models.notifications import Notification, ChannelType
 
 router = APIRouter()
 
-@router.get("/", response_model=TransactionFeesResponse)
+@router.get("", response_model=TransactionFeesResponse)
 def get_transaction_fees(
     db: Session = Depends(get_db),
     
@@ -33,7 +33,7 @@ def get_transaction_fees(
         db.refresh(fees)
     return fees
 
-@router.put("/", response_model=TransactionFeesResponse)
+@router.put("", response_model=TransactionFeesResponse)
 def update_transaction_fees(
     data: TransactionFeesUpdate,
     db: Session = Depends(get_db),

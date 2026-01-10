@@ -17,7 +17,7 @@ from app.models.notifications import Notification, ChannelType
 
 router = APIRouter()
 
-@router.get("/", response_model=List[TransactionResponse])
+@router.get("", response_model=List[TransactionResponse])
 def get_all_transactions(
     status: Optional[TransactionStatus] = Query(None),
     user_id: Optional[int] = Query(None),    

@@ -11,7 +11,7 @@ from app.security import JWTBearer, get_current_user
 router = APIRouter()
 
 
-@router.post("/", response_model=RecipientResponse)
+@router.post("", response_model=RecipientResponse)
 def create_recipient(
     data: RecipientCreate,
     db: Session = Depends(get_db),
@@ -42,7 +42,7 @@ def create_recipient(
     return recipient
 
 
-@router.get("/", response_model=List[RecipientResponse])
+@router.get("", response_model=List[RecipientResponse])
 def get_all_recipients(
     db: Session = Depends(get_db),
     token: dict = Depends(JWTBearer())

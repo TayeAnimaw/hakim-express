@@ -7,7 +7,7 @@ from typing import Dict
 
 router = APIRouter()
 
-@router.get("/", response_model=Dict[str, float])
+@router.get("", response_model=Dict[str, float])
 def get_user_transaction_fees(
     db: Session = Depends(get_db)):
     fees = db.query(TransactionFees).filter_by(is_active=True).first()

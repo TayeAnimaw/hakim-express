@@ -14,7 +14,7 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 
 router = APIRouter()
 
-@router.post("/", response_model=PaymentCardResponse)
+@router.post("", response_model=PaymentCardResponse)
 def create_payment_card(
     payment_card: PaymentCardCreate,
     db: Session = Depends(get_db),
@@ -80,7 +80,7 @@ def create_payment_card(
         return new_card
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal_server_error")
-@router.get("/", response_model=List[PaymentCardResponse])
+@router.get("", response_model=List[PaymentCardResponse])
 def get_my_payment_cards(
     db: Session = Depends(get_db),
     token: dict = Depends(JWTBearer()),

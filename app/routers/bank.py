@@ -7,7 +7,7 @@ from typing import List
 
 router = APIRouter()
 
-@router.post("/", response_model=BankResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=BankResponse, status_code=status.HTTP_201_CREATED)
 def create_bank(bank: BankCreate, db: Session = Depends(get_db)):
     db_bank = db.query(Bank).filter((Bank.bank_name == bank.bank_name) | (Bank.bank_code == bank.bank_code)).first()
     if db_bank:
@@ -18,7 +18,7 @@ def create_bank(bank: BankCreate, db: Session = Depends(get_db)):
     db.refresh(new_bank)
     return new_bank
 
-@router.get("/", response_model=List[BankResponse])
+@router.get("", response_model=List[BankResponse])
 def get_banks(db: Session = Depends(get_db)):
     banks = db.query(Bank).all()
     return banks
