@@ -26,7 +26,7 @@ from app.database.database import get_db
 router = APIRouter()
 
 
-@router.get("/", response_model=List[UserExchangeRateResponse])
+@router.get("", response_model=List[UserExchangeRateResponse])
 def get_all_exchange_rates(db: Session = Depends(get_db)):
     return db.query(ExchangeRate).all()
 @router.get("/all-live-exchange-rates", response_model=List[ExchangeRateResponse])

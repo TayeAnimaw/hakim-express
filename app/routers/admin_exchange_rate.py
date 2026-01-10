@@ -28,7 +28,7 @@ def admin_required(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-@router.post("/", response_model=ExchangeRateResponse)
+@router.post("", response_model=ExchangeRateResponse)
 def create_exchange_rate(
     data: ExchangeRateCreate,
     db: Session = Depends(get_db),
@@ -44,7 +44,7 @@ def create_exchange_rate(
     return exchange_rate
 
 
-@router.get("/", response_model=List[ExchangeRateResponse])
+@router.get("", response_model=List[ExchangeRateResponse])
 def get_all_exchange_rates(
     db: Session = Depends(get_db),
     token: dict = Depends(JWTBearer()),

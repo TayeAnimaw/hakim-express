@@ -20,7 +20,7 @@ from app.utils.boa_service import BoABeneficiaryService, BoAServiceError
 
 router = APIRouter()
 stripe.api_key = settings.STRIPE_SECRET_KEY
-@router.post("/", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
 def create_user_transaction(
     amount: Decimal = Form(...),
     currency: str = Form("usd"),
@@ -353,7 +353,7 @@ async def validate_beneficiary(
             detail=f"Beneficiary validation failed: {str(e)}"
         )
 
-@router.get("/", response_model=List[TransactionResponse])
+@router.get("", response_model=List[TransactionResponse])
 def get_user_transactions(
     db: Session = Depends(get_db),
     token: dict = Depends(JWTBearer())

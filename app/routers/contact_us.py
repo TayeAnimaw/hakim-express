@@ -19,7 +19,7 @@ def require_admin(user: User = Depends(get_current_user)) -> User:
     return user
 
 # Anyone can post contact message
-@router.post("/", response_model=ContactUsResponse)
+@router.post("", response_model=ContactUsResponse)
 def submit_contact_us(data: ContactUsCreate, db: Session = Depends(get_db)):
     contact = ContactUs(**data.dict())
     db.add(contact)
@@ -43,7 +43,7 @@ def submit_contact_us(data: ContactUsCreate, db: Session = Depends(get_db)):
     return contact
 
 #  Only admin can get all messages
-@router.get("/", response_model=List[ContactUsResponse])
+@router.get("", response_model=List[ContactUsResponse])
 def get_all_messages(
     db: Session = Depends(get_db),
     token: dict = Depends(JWTBearer())

@@ -13,7 +13,7 @@ from app.security import JWTBearer, get_current_user
 
 router = APIRouter()
 
-@router.get("/", response_model=List[NotificationOut])
+@router.get("", response_model=List[NotificationOut])
 def get_notifications(
     db: Session = Depends(get_db),
     token: dict = Depends(JWTBearer())
