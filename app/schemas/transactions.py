@@ -1,12 +1,11 @@
 # app\schemas/transactions.py
-from pydantic import BaseModel, Field, condecimal
+from pydantic import BaseModel, Field
 from typing import Optional
 from decimal import Decimal
 from enum import Enum
 from datetime import datetime
 from app.schemas.payment_cards import CardBrand, PaymentCardResponse
 from app.schemas.users import UserBase
-from __future__ import annotations
 
 # Enum for Transaction Status
 class TransactionStatus(str, Enum):
