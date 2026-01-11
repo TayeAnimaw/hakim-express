@@ -532,23 +532,38 @@ async def change_password(
 # Logout endpoint - invalidates the token at the client-side (handled on the client)
 @router.post("/logout")
 async def logout(
-    current_user: Annotated[User, Depends(get_current_user)],
+    token: dict = Depends(JWTBearer()),
     db: Session = Depends(get_db)
 ):
+    create_user = get_current_user(db, token)
+    if not create_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not authenticated"
+        )
     return {"message": "Successfully logged out and token invalidated"}
 
 @router.post("/delete-account")
 async def delete_account(
     login_data: UserLogin,
+    token: dict = Depends(JWTBearer()),
     db: Session = Depends(get_db)
 ):
     try:
-        user = authenticate_user(db, login_data.login_id, login_data.password)
+        user = get_current_user(db, token)
+        # user = authenticate_user(db, login_data.login_id, login_data.password)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid Credentials or incorrect username/password",
                 headers={"WWW-Authenticate": "Bearer"},
+            )
+        emailOrPhone = normalize_email(login_data.login_id).trim()
+        
+        if (user.email != emailOrPhone and user.phone != emailOrPhone and  (not verify_password(login_data.password, user.password))):
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"detail": "Invalid Credentials"}
             )
         user_id = user.user_id
         user = db.query(User).filter(User.user_id == user_id).first()
