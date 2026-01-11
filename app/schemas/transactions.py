@@ -1,12 +1,12 @@
 # app\schemas/transactions.py
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, condecimal
 from typing import Optional
 from decimal import Decimal
 from enum import Enum
 from datetime import datetime
 from app.schemas.payment_cards import CardBrand, PaymentCardResponse
 from app.schemas.users import UserBase
-
+from __future__ import annotations
 
 # Enum for Transaction Status
 class TransactionStatus(str, Enum):
@@ -43,8 +43,8 @@ class TransactionBase(BaseModel):
     manual_card_zip: Optional[str] = None
 
 # For Creating
-class TransactionCreate(TransactionBase):
-   pass
+class TransactionCreate(BaseModel):
+    pass
 
 # For Internal Use
 class TransactionInternal(TransactionBase):      

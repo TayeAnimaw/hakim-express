@@ -43,8 +43,9 @@ def get_all_transactions(
         )
 
         # Apply filters
+        query = query.filter(Transaction.amount > 0)
         if user_id:
-            query = query.filter(Transaction.user_id == user_id)
+            query = query.filter(Transaction.user_id == user_id )
         if status:
             query = query.filter(Transaction.status == status)    
         if currency:
@@ -82,9 +83,8 @@ def get_transaction_details(
         transaction = db.query(Transaction).options(
             joinedload(Transaction.user).joinedload(User.kyc_document),
             joinedload(Transaction.payment_card)
-        ).filter(Transaction.transaction_id == transaction_id).first()
-
-        if not transaction:
+        ).filter(Transaction.transaction_id == transaction_id,Transaction.amount > 0).first()
+        if not transaction or transaction.amount <= 0:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found")
 
         return transaction
@@ -106,8 +106,8 @@ def update_transaction_status(
         transaction = db.query(Transaction).options(
             joinedload(Transaction.user).joinedload(User.kyc_document),
             joinedload(Transaction.payment_card)
-        ).filter(Transaction.transaction_id == transaction_id).first()
-
+        ).filter(Transaction.transaction_id == transaction_id,Transaction.amount > 0).first()
+        # transaction = transaction.filter(Transaction.amount > 0)
         if not transaction:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found")
 
@@ -208,8 +208,8 @@ def delete_transaction(
         if current_user.role != Role.admin:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
 
-        transaction = db.query(Transaction).filter(Transaction.transaction_id == transaction_id).first()
-        
+        transaction = db.query(Transaction).filter(Transaction.transaction_id == transaction_id,Transaction.amount > 0).first()
+        # transaction = transaction.filter(Transaction.amount > 0)
         if not transaction:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found")
 
