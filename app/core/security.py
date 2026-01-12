@@ -96,7 +96,7 @@ def is_valid_phone_number(phone: str) -> bool:
 
 
 async def check_rate_limit(email_or_phone: str, action: str, limit: int = 5, window: int = 600):
-
+    
     email = email_or_phone.lower().strip()
     redis = await get_redis()
     key = f"rate_limit:{action}:{email}"
@@ -105,6 +105,11 @@ async def check_rate_limit(email_or_phone: str, action: str, limit: int = 5, win
     
     if current_attempts and int(current_attempts) >= limit:
         return False  # Limit exceeded
+    await increment_rate_limit(
+        email_or_phone=email_or_phone,
+        action=action,
+        window=window
+    )
     
     return True
 

@@ -368,7 +368,7 @@ async def forgetPassword(
     
     
 ):
-    allowed = await check_rate_limit(f"forget_password_{data.emailOrPhone}", action="forget_password", limit=4)
+    allowed = await check_rate_limit(f"reset_password_{data.emailOrPhone}", action="reset_password", limit=2, window=86400)
     if not allowed:
         raise HTTPException(status_code=429, detail="Too many forget password attempts. Try again in 10 minutes.")
     try:
@@ -423,7 +423,7 @@ async def confirmResetRequest(
     db: Session = Depends(get_db)
 ):
     try:
-        allowed = await check_rate_limit(f"confirm_reset_{data.emailOrPhone}", action="confirm_reset", limit=5)
+        allowed = await check_rate_limit(f"reset_password_{data.emailOrPhone}", action="reset_password", limit=2, window=86400)
         if not allowed:
             raise HTTPException(status_code=429, detail="Too many confirm reset attempts. Try again in 10 minutes.")
         if(data.email is None and data.phone is None):
@@ -445,8 +445,7 @@ async def confirmResetRequest(
             "detail" : "OTP verified successfully"
         }
     except Exception as e:
-        print(e)
-        print("==============")
+
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"detail" : "could not process the request"}
@@ -457,7 +456,7 @@ async def resetPassword(
     db: Session = Depends(get_db)
 ) :
     try:
-        allowed = await check_rate_limit(f"reset_password_{data.emailOrPhone}", action="reset_password", limit=5)
+        allowed = await check_rate_limit(f"reset_password_{data.emailOrPhone}", action="reset_password", limit=2, window=86400)
         if not allowed:
             raise HTTPException(status_code=429, detail="Too many reset password attempts. Try again in 10 minutes.")
         if(data.emailOrPhone is None or data.password is None):
@@ -515,6 +514,13 @@ async def change_password(
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content={"detail": "Current password is incorrect"}
+            )
+        # user must be stay at lest 1 day before changing password again
+        time_since_last_change = datetime.utcnow() - current_user.updated_at
+        if (time_since_last_change.total_seconds < 86400):
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={"detail": "You can only change your password once every 24 hours"}
             )
         new_hashed_password = get_password_hash(data.new_password)
         current_user.password = new_hashed_password
