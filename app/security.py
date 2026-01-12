@@ -65,14 +65,18 @@ def get_current_user(db: Session = Depends(get_db), token: dict = Depends(verify
 class JWTBearer(HTTPBearer):
     async def __call__(self, request: Request):
         credentials: HTTPAuthorizationCredentials = await super().__call__(request)
-        token = credentials.credentials if credentials else request.query_params.get('token')
+        if not credentials:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated",
+            )
+        token = credentials.credentials.strip('"')
         if not token:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Not authenticated",
             )
         # Strip surrounding quotes if present
-        token = token.strip('"')
         return verify_access_token(token)
 def authenticate_user(db: Session, login_id: str, password: str):
     # Try to find user by email or phone

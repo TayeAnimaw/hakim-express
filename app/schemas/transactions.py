@@ -7,7 +7,6 @@ from datetime import datetime
 from app.schemas.payment_cards import CardBrand, PaymentCardResponse
 from app.schemas.users import UserBase
 
-
 # Enum for Transaction Status
 class TransactionStatus(str, Enum):
     pending = "pending"
@@ -43,8 +42,8 @@ class TransactionBase(BaseModel):
     manual_card_zip: Optional[str] = None
 
 # For Creating
-class TransactionCreate(TransactionBase):
-   pass
+class TransactionCreate(BaseModel):
+    pass
 
 # For Internal Use
 class TransactionInternal(TransactionBase):      

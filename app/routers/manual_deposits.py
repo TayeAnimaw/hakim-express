@@ -17,7 +17,11 @@ import shutil
 router = APIRouter()
 UPLOAD_DIR = "uploads/deposit_proofs"
 @router.get("", response_model=List[ManualDepositResponseList])
-def list_failed_manual_deposits(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def list_failed_manual_deposits(
+    db: Session = Depends(get_db), 
+    token: dict = Depends(JWTBearer())
+):
+    current_user = get_current_user(db, token)
     if current_user.role != Role.admin:
         raise HTTPException(status_code=403, detail="Only admins can access this")
 

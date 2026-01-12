@@ -19,6 +19,7 @@ router = APIRouter()
 #     return new_country
 
 @router.get("", response_model=List[CountryResponse])
-def get_countries(db: Session = Depends(get_db)):
+def get_countries(
+    db: Session = Depends(get_db)):
     countries = db.query(Country).all()
     return countries

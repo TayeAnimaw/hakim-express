@@ -63,6 +63,11 @@ def create_user_transaction(
     stripe_amount = int(total_amount * 100)
     payment_method_id = None
     customer_id = None
+    if(amount <= 0 or total_amount <=0):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Amount must be greater than zero."
+        )
 
     if payment_card_id:
         # ✅ Use saved card
@@ -365,6 +370,7 @@ def get_user_transactions(
     return db.query(Transaction)\
         .options(joinedload(Transaction.payment_card))\
         .filter(Transaction.user_id == current_user.user_id)\
+        .filter(Transaction.amount > 0)\
         .order_by(Transaction.created_at.desc())\
         .all()
 
@@ -384,6 +390,7 @@ def get_user_transaction(
             Transaction.transaction_id == transaction_id,
             Transaction.user_id == current_user.user_id
         )\
+        .filter(Transaction.amount > 0)\
         .first()
 
     if not transaction:
