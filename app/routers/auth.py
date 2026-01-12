@@ -42,63 +42,70 @@ async def login_for_access_token(
     login_data: UserLogin,
     db: Session = Depends(get_db)
 ):
-    # Check if user exists and authenticate user
-    allowed = await check_rate_limit(login_data.login_id, action="login", limit=3, window=60)
-    if not allowed:
-        raise HTTPException(status_code=429, detail="Too many login attempts. Try again in 1 minutes.")
-    user = authenticate_user(db, login_data.login_id, login_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Credentials or incorrect username/password",
-            headers={"WWW-Authenticate": "Bearer"},
+    try:
+        # Rate limiting
+        allowed = await check_rate_limit(login_data.login_id, action="login", limit=3, window=60)
+        if not allowed:
+            raise HTTPException(status_code=429, detail="Too many login attempts. Try again in 1 minute.")
+
+        # Authenticate user
+        user = authenticate_user(db, login_data.login_id, login_data.password)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid Credentials or incorrect username/password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # Check if user is active
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User account is inactive",
+            )
+
+        # Check if user is verified
+        if not user.is_verified:
+            otp = "123456"  # Hardcoded OTP for testing
+            await store_verification_code(login_data.login_id, otp)
+            subject = "Verify Your OTP Code"
+            body = f"Dear {user.email},\n\nYour OTP code is: {otp}\n\nIt will expire in 10 minutes."
+            await send_email_async(subject, user.email, body)
+
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Your account is not verified. Please verify your OTP by entering the code sent to your email."
+            )
+
+        # Generate tokens
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        refresh_token_expires = timedelta(days=7)
+        access_token = create_access_token(
+            data={"sub": str(user.user_id)},
+            expires_delta=access_token_expires
+        )
+        refresh_token = create_refresh_token(
+            data={"sub": str(user.user_id)},
+            expires_delta=refresh_token_expires
         )
 
-    # Check if the user is active and verified
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User account is inactive",
-        )
-    if not user.is_verified:
-        # Send OTP if the user is not verified
-        # to pass OTP we use hard coded only for test
-        otp = "123456"
-        # save the otp on redis
-        await store_verification_code(login_data.login_id, otp)
-        # This is where you send OTP to the user via email/SMS
-        subject = "Verify Your OTP Code"
-        body = f"Dear {user.email},\n\nYour OTP code is: {otp}\n\nIt will expire in 10 minutes."
-        await send_email_async(subject, user.email, body)
+        # Update last login time
+        user.last_login = datetime.utcnow()
+        db.commit()
 
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Your account is not verified. Please verify your OTP by entering the code sent to your email."
+        # Return response using Pydantic model
+        return Token(
+            message="You have successfully logged in.",
+            access_token=access_token,
+            refresh_token=refresh_token,
+            token_type="bearer"
         )
 
-    # Generate the access token for the user
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    refresh_token_expires = timedelta(days=7)
-    access_token = create_access_token(
-        data={"sub": str(user.user_id)},  # Using user_id as identifier
-        expires_delta=access_token_expires
-    )
-    refresh_token = create_refresh_token(
-    data={"sub": str(user.user_id)},
-    expires_delta=refresh_token_expires
-   )
-
-    # Update last login time
-    user.last_login = datetime.utcnow()
-    db.commit()
-    
-    return {
-        "message": "You have successfully logged in.",
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer"
-    }
-
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Server error: {str(e)}"
+        )
 
 @router.post("/refresh-token", response_model=Token)
 
@@ -128,7 +135,7 @@ async def refresh_token(data: RefreshTokenRequest, db: Session = Depends(get_db)
 
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
-@router.post("/login-admin", response_class=Token)
+@router.post("/login-admin", response_model=Token)
 async def admin_login(
     login_data: UserLogin,
     db: Session = Depends(get_db)
@@ -136,7 +143,8 @@ async def admin_login(
     try:
         allowed = await check_rate_limit(login_data.login_id, action="login", limit=3, window=60)
         if not allowed:
-            raise HTTPException(status_code=429, detail="Too many login attempts. Try again in 1 minutes.")
+            raise HTTPException(status_code=429, detail="Too many login attempts. Try again in 1 minute.")
+
         user = authenticate_user(db, login_data.login_id, login_data.password)
         if not user:
             raise HTTPException(
@@ -145,65 +153,43 @@ async def admin_login(
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        # Check if the user is active and verified
-        if(user.role != Role.admin):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Admin access required",
-            )
+        if user.role != Role.admin:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Admin access required")
+
         if not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User account is inactive",
-            )
-        
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User account is inactive")
+
         if not user.is_verified:
             otp = generate_random_otp()
-            # save the otp on redis
             await store_verification_code(login_data.login_id, otp)
-            # This is where you send OTP to the user via email/SMS
-            subject = "Verify Your OTP Code"
-            body = f"Dear {user.email},\n\nYour OTP code is: {otp}\n\nIt will expire in 10 minutes."
-            if("@" in login_data.login_id):
-                body = f"Dear {user.email},\n\nYour OTP code is: {otp}\n\nIt will expire in 10 minutes."
-                await send_email_async(subject, user.email, body)
+            if "@" in login_data.login_id:
+                await send_email_async("Verify Your OTP Code", user.email, f"Your OTP code is: {otp}")
             else:
-                body = f"Dear {user.phone},\n\nYour OTP code is: {otp}\n\nIt will expire in 10 minutes."
-                await send_sms(login_data.login_id, body)
+                await send_sms(login_data.login_id, f"Your OTP code is: {otp}")
 
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Your account is not verified. Please verify your OTP by entering the code sent to your email."
+                detail="Your account is not verified. Please verify your OTP by entering the code sent to you."
             )
 
-        # Generate the access token for the user
-        
         access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         refresh_token_expires = timedelta(days=7)
-        access_token = create_access_token(
-            data={"sub": str(user.user_id)},  # Using user_id as identifier
-            expires_delta=access_token_expires
-        )
-        refresh_token = create_refresh_token(
-        data={"sub": str(user.user_id)},
-        expires_delta=refresh_token_expires
-    )
 
-        # Update last login time
+        access_token = create_access_token(data={"sub": str(user.user_id)}, expires_delta=access_token_expires)
+        refresh_token = create_refresh_token(data={"sub": str(user.user_id)}, expires_delta=refresh_token_expires)
+
         user.last_login = datetime.utcnow()
         db.commit()
-        
-        return {
-            "message": "You have successfully logged in.",
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-            "token_type": "bearer"
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Server error: {str(e)}"
+
+        return Token(
+            message="You have successfully logged in.",
+            access_token=access_token,
+            refresh_token=refresh_token,
+            token_type="bearer"
         )
+
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Server error: {str(e)}")
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 async def create_user(
     user_data: UserCreate,
