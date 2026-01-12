@@ -7,7 +7,7 @@ from app.database.database import Base, SessionLocal, engine, init_redis
 from app.seeders import create_admin_user
 from app.routers import auth, users, payment_cards, recipients ,manual_deposits, notifications, kyc_documents, admin_kyc, admin_transactions,user_transactions, admin,dashboard, admin_exchange_rate, user_exchange_rate, admin_role, contact_us, admin_transaction_fees, admin_role,country, bank, user_transaction_fees, boa_integration
 from app.seeders import create_admin_user
-from app.core.security import limiter
+from app.core.security import SecurityHeadersMiddleware, limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.middleware import SlowAPIMiddleware
@@ -24,7 +24,8 @@ app = FastAPI(
     redoc_url=None
 )
 app.state.limiter = limiter
-app.add_middleware(SlowAPIMiddleware) # This activates the global 60/min limit
+app.add_middleware(SlowAPIMiddleware)
+app.add_middleware(SecurityHeadersMiddleware) # This activates the global 60/min limit
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 basic_auth = HTTPBasic()
@@ -54,12 +55,17 @@ def on_startup():
         db.close()
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+origins = [
+    "https://admin.hakimexpress-et.com",  # your web admin
+    "https://www.hakimexpress-et.com",    # any web frontend
+    # Mobile apps do NOT need origin entries
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 @app.on_event("startup")
