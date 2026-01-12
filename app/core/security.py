@@ -126,7 +126,6 @@ async def increment_rate_limit(email_or_phone: str, action: str, window: int = 6
     if new_val == 1:
         await redis.expire(key, window)
         
-        
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response: Response = await call_next(request)
@@ -140,14 +139,27 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # Prevent MIME-type sniffing
         response.headers["X-Content-Type-Options"] = "nosniff"
 
-        # Content Security Policy (updated to allow Swagger)
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
-            "frame-ancestors 'none'; "
-            "script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
-            "style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
-            "img-src 'self' https://fastapi.tiangolo.com; "
-        )
+        # Content Security Policy
+        # Use a looser CSP for development (Swagger) and strict for production
+        if os.getenv("ENV", "development") == "development":
+            # Allow Swagger resources
+            csp = (
+                "default-src 'self'; "
+                "script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
+                "style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
+                "img-src 'self' https://fastapi.tiangolo.com;"
+            )
+        else:
+            # Strict CSP for production
+            csp = (
+                "default-src 'self'; "
+                "frame-ancestors 'none'; "
+                "script-src 'self'; "
+                "style-src 'self'; "
+                "img-src 'self';"
+            )
+
+        response.headers["Content-Security-Policy"] = csp.strip()
 
         # Referrer policy
         response.headers["Referrer-Policy"] = "no-referrer"
