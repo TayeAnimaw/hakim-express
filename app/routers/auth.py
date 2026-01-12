@@ -506,7 +506,9 @@ async def confirmResetRequest(
             "detail" : "OTP verified successfully"
         }
     except Exception as e:
-
+        print("========")
+        print(e)
+        print("111111111")
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"detail" : "could not process the request"}
