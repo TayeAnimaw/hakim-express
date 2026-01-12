@@ -57,7 +57,8 @@ def on_startup():
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 origins = [
     "https://admin.hakimexpress-et.com",  # your web admin
-    "https://www.hakimexpress-et.com",    # any web frontend
+    "https://www.hakimexpress-et.com",   
+    "http://localhost:3000" # any web frontend
     # Mobile apps do NOT need origin entries
 ]
 
