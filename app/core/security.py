@@ -130,18 +130,31 @@ async def increment_rate_limit(email_or_phone: str, action: str, window: int = 6
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response: Response = await call_next(request)
+
         # HSTS: enforce HTTPS for 1 year
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+
         # Clickjacking protection
         response.headers["X-Frame-Options"] = "DENY"
+
         # Prevent MIME-type sniffing
         response.headers["X-Content-Type-Options"] = "nosniff"
-        # Content Security Policy
-        response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'; script-src 'self'"
+
+        # Content Security Policy (updated to allow Swagger)
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "frame-ancestors 'none'; "
+            "script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
+            "style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
+            "img-src 'self' https://fastapi.tiangolo.com; "
+        )
+
         # Referrer policy
         response.headers["Referrer-Policy"] = "no-referrer"
+
         # Permissions policy (modern replacement for Feature-Policy)
         response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
+
         # Cross-Origin policies
         response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
         response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
