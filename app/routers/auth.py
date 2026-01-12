@@ -43,9 +43,9 @@ async def login_for_access_token(
     db: Session = Depends(get_db)
 ):
     # Check if user exists and authenticate user
-    allowed = await check_rate_limit(login_data.login_id, action="login", limit=5)
+    allowed = await check_rate_limit(login_data.login_id, action="login", limit=3, window=60)
     if not allowed:
-        raise HTTPException(status_code=429, detail="Too many login attempts. Try again in 10 minutes.")
+        raise HTTPException(status_code=429, detail="Too many login attempts. Try again in 1 minutes.")
     user = authenticate_user(db, login_data.login_id, login_data.password)
     if not user:
         raise HTTPException(
@@ -128,7 +128,82 @@ async def refresh_token(data: RefreshTokenRequest, db: Session = Depends(get_db)
 
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+@router.post("/login-admin", response_class=Token)
+async def admin_login(
+    login_data: UserLogin,
+    db: Session = Depends(get_db)
+):
+    try:
+        allowed = await check_rate_limit(login_data.login_id, action="login", limit=3, window=60)
+        if not allowed:
+            raise HTTPException(status_code=429, detail="Too many login attempts. Try again in 1 minutes.")
+        user = authenticate_user(db, login_data.login_id, login_data.password)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid Credentials or incorrect username/password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
+        # Check if the user is active and verified
+        if(user.role != Role.admin):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Admin access required",
+            )
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User account is inactive",
+            )
+        
+        if not user.is_verified:
+            otp = generate_random_otp()
+            # save the otp on redis
+            await store_verification_code(login_data.login_id, otp)
+            # This is where you send OTP to the user via email/SMS
+            subject = "Verify Your OTP Code"
+            body = f"Dear {user.email},\n\nYour OTP code is: {otp}\n\nIt will expire in 10 minutes."
+            if("@" in login_data.login_id):
+                body = f"Dear {user.email},\n\nYour OTP code is: {otp}\n\nIt will expire in 10 minutes."
+                await send_email_async(subject, user.email, body)
+            else:
+                body = f"Dear {user.phone},\n\nYour OTP code is: {otp}\n\nIt will expire in 10 minutes."
+                await send_sms(login_data.login_id, body)
+
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Your account is not verified. Please verify your OTP by entering the code sent to your email."
+            )
+
+        # Generate the access token for the user
+        
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        refresh_token_expires = timedelta(days=7)
+        access_token = create_access_token(
+            data={"sub": str(user.user_id)},  # Using user_id as identifier
+            expires_delta=access_token_expires
+        )
+        refresh_token = create_refresh_token(
+        data={"sub": str(user.user_id)},
+        expires_delta=refresh_token_expires
+    )
+
+        # Update last login time
+        user.last_login = datetime.utcnow()
+        db.commit()
+        
+        return {
+            "message": "You have successfully logged in.",
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Server error: {str(e)}"
+        )
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 async def create_user(
     user_data: UserCreate,
@@ -368,9 +443,9 @@ async def forgetPassword(
     
     
 ):
-    allowed = await check_rate_limit(f"reset_password_{data.emailOrPhone}", action="reset_password", limit=2, window=86400)
+    allowed = await check_rate_limit(f"reset_password_{data.emailOrPhone}", action="reset_password", limit=3, window=3600)
     if not allowed:
-        raise HTTPException(status_code=429, detail="Too many forget password attempts. Try again in 10 minutes.")
+        raise HTTPException(status_code=429, detail="Too many forget password attempts. Try again in 1 hour.")
     try:
         if(data.emailOrPhone is None):
             return JSONResponse(
@@ -423,9 +498,9 @@ async def confirmResetRequest(
     db: Session = Depends(get_db)
 ):
     try:
-        allowed = await check_rate_limit(f"reset_password_{data.emailOrPhone}", action="reset_password", limit=2, window=86400)
+        allowed = await check_rate_limit(f"reset_password_{data.emailOrPhone}", action="reset_password", limit=3, window=3600)
         if not allowed:
-            raise HTTPException(status_code=429, detail="Too many confirm reset attempts. Try again in 10 minutes.")
+            raise HTTPException(status_code=429, detail="Too many confirm reset attempts. Try again in 1 hour.")
         if(data.email is None and data.phone is None):
             return JSONResponse(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -456,9 +531,9 @@ async def resetPassword(
     db: Session = Depends(get_db)
 ) :
     try:
-        allowed = await check_rate_limit(f"reset_password_{data.emailOrPhone}", action="reset_password", limit=2, window=86400)
+        allowed = await check_rate_limit(f"reset_password_{data.emailOrPhone}", action="reset_password", limit=3, window=3600)
         if not allowed:
-            raise HTTPException(status_code=429, detail="Too many reset password attempts. Try again in 10 minutes.")
+            raise HTTPException(status_code=429, detail="Too many reset password attempts. Try again in 1 hour.")
         if(data.emailOrPhone is None or data.password is None):
             return JSONResponse(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
