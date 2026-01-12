@@ -484,7 +484,8 @@ async def confirmResetRequest(
     db: Session = Depends(get_db)
 ):
     try:
-        allowed = await check_rate_limit(f"reset_password_{data.email if data.email else data.phone}", action="reset_password", limit=3, window=3600)
+        print(data.email if data.email else data.phone)
+        allowed = await check_rate_limit(f"confirm_reset_password_{data.email if data.email else data.phone}", action="confirm_reset_password", limit=3, window=3600)
         if not allowed:
             raise HTTPException(status_code=429, detail="Too many confirm reset attempts. Try again in 1 hour.")
         if(data.email is None and data.phone is None):
