@@ -33,8 +33,10 @@ class RejectReason(BaseModel):
 @router.get("/submissions", response_model=List[KYCDocumentOut])
 def list_kyc_submissions(
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin)
-):
+    token : dict = Depends(JWTBearer()),
+   
+   ):
+    _ = require_admin(db, token)
     return db.query(KYCDocument)\
              .options(joinedload(KYCDocument.user))\
              .order_by(KYCDocument.created_at.desc())\
@@ -46,8 +48,9 @@ def list_kyc_submissions(
 def get_kyc_by_user(
     user_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin)
+    token: dict = Depends(JWTBearer())
 ):
+    _ = require_admin(db, token)
     kyc = db.query(KYCDocument)\
             .options(joinedload(KYCDocument.user))\
             .filter(KYCDocument.user_id == user_id)\
@@ -63,8 +66,9 @@ def get_kyc_by_user(
 def approve_kyc(
     user_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin)
+    token: dict = Depends(JWTBearer())
 ):
+    _ = require_admin(db, token)
     kyc = db.query(KYCDocument).filter(KYCDocument.user_id == user_id).first()
     if not kyc:
         raise HTTPException(status_code=404, detail="KYC not found")
@@ -87,20 +91,18 @@ def reject_kyc(
     user_id: int,
     payload: RejectReason,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin)
+    token: dict = Depends(JWTBearer())
 ):
+    _ = require_admin(db, token)
     kyc = db.query(KYCDocument).filter(KYCDocument.user_id == user_id).first()
     if not kyc:
         raise HTTPException(status_code=404, detail="KYC not found")
-
     kyc.status = KYCStatus.rejected
     kyc.rejection_reason = payload.reason
     kyc.verified_at = datetime.utcnow()
-
     user = db.query(User).filter(User.user_id == user_id).first()
     if user:
         user.kyc_status = KYCStatus.rejected
-
     db.commit()
     return {
         "message": "KYC rejected successfully",
@@ -113,8 +115,9 @@ def reject_kyc(
 def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin)
+    token: dict = Depends(JWTBearer())
 ):
+    _ = require_admin(db, token)
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
